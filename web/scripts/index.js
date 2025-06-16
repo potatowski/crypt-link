@@ -1,0 +1,95 @@
+async function encryptAndSend() {
+    const msg = document.getElementById('message').value.trim();
+    const minutes = parseInt(document.getElementById('validity').value, 10) || 10;
+    if (isNaN(minutes) || minutes <= 0 || minutes > 1440) {
+        return alert('Digite um valor válido para a validade (1 a 1440 minutos)');
+    }
+
+    if (!msg) {
+        return alert('Digite uma mensagem');
+    }
+
+    const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encodedMsg = new TextEncoder().encode(msg);
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encodedMsg);
+    const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+
+    const rawKey = await crypto.subtle.exportKey('raw', key);
+    const keyBase64 = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
+    const ivBase64 = btoa(String.fromCharCode(...iv));
+
+    const id = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + minutes * 60_000).toISOString();
+
+    const payload = {
+        id,
+        encrypted: JSON.stringify({ ciphertext: encryptedBase64, iv: ivBase64, expiresAt })
+    };
+
+    const res = await fetch('/api/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+        alert('Erro ao salvar a mensagem');
+        return;
+    }
+
+    const link = `${location.origin}/#${id}.${keyBase64}`;
+    document.getElementById('link-input').value = link;
+
+    document.getElementById('result').classList.remove('hidden');
+    document.getElementById('form-section').classList.add('hidden');
+}
+
+function copyLink() {
+    const input = document.getElementById('link-input');
+    input.select();
+    navigator.clipboard.writeText(input.value)
+        .then(() => alert('Link copiado!'))
+        .catch(() => alert('Erro ao copiar o link.'));
+}
+
+async function tryDecrypt() {
+    if (!location.hash.includes('#')) return;
+
+    const [id, keyBase64] = location.hash.slice(1).split('.', 2);
+    if (!id || !keyBase64) return;
+
+    const res = await fetch(`/api/message/${id}`);
+    if (!res.ok) {
+        document.getElementById('display-section').classList.remove('hidden');
+        document.getElementById('decrypted').innerText = 'Mensagem não encontrada ou já foi lida.';
+        return;
+    }
+
+    const data = await res.json();
+    const payload = JSON.parse(data.encrypted);
+    const ciphertext = Uint8Array.from(atob(payload.ciphertext), c => c.charCodeAt(0));
+    const iv = Uint8Array.from(atob(payload.iv), c => c.charCodeAt(0));
+    const expiresAt = new Date(payload.expiresAt);
+
+    if (new Date() > expiresAt) {
+        document.getElementById('decrypted').innerText = 'Mensagem expirada.';
+        return;
+    }
+
+    const rawKey = Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0));
+    const cryptoKey = await crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt']);
+
+    try {
+        const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ciphertext);
+        const msg = new TextDecoder().decode(decrypted);
+        document.getElementById('decrypted').innerText = msg;
+    } catch (e) {
+        document.getElementById('decrypted').innerText = 'Falha ao descriptografar.';
+    }
+
+    document.getElementById('display-section').classList.remove('hidden');
+    document.getElementById('form-section').classList.add('hidden');
+}
+
+window.onload = tryDecrypt;

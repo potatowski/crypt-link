@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mensagem Secreta</title>
+  <link rel="stylesheet" href="style/index.css">
+</head>
+<body>
+  <h1>Mensagem Secreta</h1>
+
+  <div id="form-section">
+    <textarea id="message" placeholder="Digite sua mensagem secreta aqui..." rows="5"></textarea>
+    <div class="row">
+      <p>Validade (minutos)</p><input type="number" id="validity" placeholder="Validade (minutos)" min="1" value="10" />
+      <button onclick="encryptAndSend()">Criar Link</button>
+    </div>
+  </div>
+
+  <div id="result" class="hidden">
+    <strong>Compartilhe este link:</strong>
+    <div id="link-section">
+      <input type="text" id="link-input" readonly onclick="this.select()" />
+      <button onclick="copyLink()">Copiar</button>
+    </div>
+  </div>
+
+  <div id="display-section" class="hidden">
+    <h2>Mensagem:</h2>
+    <div id="decrypted" style="background: #fff; padding: 1rem;"></div>
+  </div>
+
+  <script src="scripts/index.js"></script>
+</body>
+</html>

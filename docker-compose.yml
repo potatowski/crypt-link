@@ -1,0 +1,31 @@
+services:
+  go:
+    build:
+      context: .
+      dockerfile: docker/go/Dockerfile
+    container_name: go_app
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nginx_front
+    ports:
+      - "80:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - go
+
+  mongo:
+    image: mongo:5
+    container_name: mongo_db
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
