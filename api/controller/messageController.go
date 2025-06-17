@@ -1,8 +1,10 @@
 package controller
 
 import (
+	"crypt-link/response"
 	"crypt-link/service"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -17,49 +19,50 @@ type createRequest struct {
 func CreateMessage(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
 
 	var inner map[string]interface{}
 	if err := json.Unmarshal([]byte(req.Encrypted), &inner); err != nil {
-		http.Error(w, "Invalid encrypted content", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, err)
 		return
 	}
 
 	expiresStr, ok := inner["expiresAt"].(string)
 	if !ok {
-		http.Error(w, "expiresAt required", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, errors.New("expiresAt is required in encrypted data"))
 		return
 	}
 
 	expiresAt, err := time.Parse(time.RFC3339, expiresStr)
 	if err != nil {
-		http.Error(w, "Invalid expiresAt", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, errors.New("invalid expiresAt format, must be RFC3339"))
 		return
 	}
 
 	service := service.NewMessageService()
 	if err := service.Create(req.ID, req.Encrypted, expiresAt); err != nil {
-		http.Error(w, "Failed to save", http.StatusInternalServerError)
+		response.Error(w, http.StatusInternalServerError, err)
 		return
 	}
-	w.WriteHeader(http.StatusCreated)
+
+	response.JSON(w, http.StatusCreated, map[string]string{"message": "Message created successfully"})
 }
 
 func GetMessage(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	if id == "" {
-		http.Error(w, "ID is required", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest, errors.New("ID is required"))
 		return
 	}
 
 	service := service.NewMessageService()
 	msg, err := service.GetAndInvalidate(id)
 	if err != nil {
-		http.Error(w, "Message not found or expired", http.StatusNotFound)
+		response.Error(w, http.StatusNotFound, errors.New("message not found or expired"))
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{"encrypted": msg.Encrypted})
+	response.JSON(w, http.StatusOK, map[string]string{"encrypted": msg.Encrypted})
 }
