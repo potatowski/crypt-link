@@ -7,14 +7,20 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// Route is a struct to representation of all api routes
+// Route represents an HTTP route with its URI, HTTP method, and handler function.
+// URI specifies the endpoint path.
+// Method specifies the HTTP method (e.g., "GET", "POST").
+// Function is the handler to be executed when the route is matched.
 type Route struct {
 	URI      string
 	Method   string
 	Function func(http.ResponseWriter, *http.Request)
 }
 
-// Configurate added all routes in mux router
+// Configurate sets up the provided mux.Router by registering all routes defined in the
+// endpointsMessage slice. Each route is associated with its URI, HTTP method, and handler function.
+// Additionally, it serves static files from the "./web" directory for any unmatched routes.
+// Returns the configured *mux.Router.
 func Configurate(r *mux.Router) *mux.Router {
 	routes := endpointsMessage
 
