@@ -19,8 +19,9 @@ type Route struct {
 
 // Configurate sets up the provided mux.Router by registering all routes defined in the
 // endpointsMessage slice. Each route is associated with its URI, HTTP method, and handler function.
-// Additionally, it serves static files from the "./web" directory for any unmatched routes.
-// Returns the configured *mux.Router.
+//
+// Returns:
+//   - *mux.Router: The configured HTTP router ready to be used by the server.
 func Configurate(r *mux.Router) *mux.Router {
 	routes := endpointsMessage
 
@@ -30,8 +31,11 @@ func Configurate(r *mux.Router) *mux.Router {
 		r.HandleFunc(route.URI, route.Function).Methods(route.Method)
 	}
 
-	fs := http.FileServer(http.Dir("./web"))
-	r.PathPrefix("/").Handler(fs)
+	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error": "resource not found"}`))
+	})
 
 	return r
 }
