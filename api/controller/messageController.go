@@ -9,20 +9,12 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type MessageController struct {
-	Service *service.MessageService
-}
-
-func NewMessageController(s *service.MessageService) *MessageController {
-	return &MessageController{Service: s}
-}
-
 type createRequest struct {
 	ID        string `json:"id"`
 	Encrypted string `json:"encrypted"`
 }
 
-func (c *MessageController) CreateMessage(w http.ResponseWriter, r *http.Request) {
+func CreateMessage(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -47,17 +39,23 @@ func (c *MessageController) CreateMessage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := c.Service.Create(req.ID, req.Encrypted, expiresAt); err != nil {
+	service := service.NewMessageService()
+	if err := service.Create(req.ID, req.Encrypted, expiresAt); err != nil {
 		http.Error(w, "Failed to save", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (c *MessageController) GetMessage(w http.ResponseWriter, r *http.Request) {
+func GetMessage(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
+	if id == "" {
+		http.Error(w, "ID is required", http.StatusBadRequest)
+		return
+	}
 
-	msg, err := c.Service.GetAndInvalidate(id)
+	service := service.NewMessageService()
+	msg, err := service.GetAndInvalidate(id)
 	if err != nil {
 		http.Error(w, "Message not found or expired", http.StatusNotFound)
 		return

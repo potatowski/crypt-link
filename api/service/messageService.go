@@ -1,6 +1,7 @@
 package service
 
 import (
+	"crypt-link/database"
 	"crypt-link/model"
 	"crypt-link/repository"
 	"crypt-link/util"
@@ -8,26 +9,34 @@ import (
 	"time"
 )
 
-type MessageService struct {
-	Repo *repository.MessageRepository
-}
+type MessageService struct{}
 
-func NewMessageService(repo *repository.MessageRepository) *MessageService {
-	return &MessageService{Repo: repo}
+func NewMessageService() *MessageService {
+	return &MessageService{}
 }
 
 func (s *MessageService) Create(id, encrypted string, expiresAt time.Time) error {
+	if expiresAt.Before(util.NowUTC()) {
+		return errors.New("expiration time must be in the future")
+	}
+
+	if id == "" || encrypted == "" {
+		return errors.New("id and encrypted content must not be empty")
+	}
+
+	repo := repository.NewMessageRepository(database.Client)
 	msg := model.Message{
 		ID:        id,
 		Encrypted: encrypted,
 		CreatedAt: util.NowUTC(),
 		ExpiresAt: expiresAt,
 	}
-	return s.Repo.Save(msg)
+	return repo.Save(msg)
 }
 
 func (s *MessageService) GetAndInvalidate(id string) (*model.Message, error) {
-	msg, err := s.Repo.FindAndDelete(id)
+	repo := repository.NewMessageRepository(database.Client)
+	msg, err := repo.FindAndDelete(id)
 	if err != nil {
 		return nil, err
 	}
