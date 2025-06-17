@@ -8,9 +8,9 @@ import (
 )
 
 func main() {
-	cfg := config.Load()
+	config.Load()
 
-	r := router.Setup(cfg)
+	r := router.Setup()
 
 	log.Println("Listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", r))

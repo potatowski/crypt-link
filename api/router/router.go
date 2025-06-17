@@ -1,24 +1,27 @@
 package router
 
 import (
-	"context"
-	"crypt-link/config"
 	"crypt-link/controller"
+	"crypt-link/database"
 	"crypt-link/repository"
 	"crypt-link/service"
-	"time"
 
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func Setup(cfg config.Config) *mux.Router {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	client, _ := mongo.Connect(ctx, options.Client().ApplyURI(cfg.MongoURI))
+// Setup initializes the application's HTTP router with all necessary routes and handlers.
+// It establishes a MongoDB connection using the provided configuration, sets up the repository,
+// service, and controller layers for message handling, and registers API endpoints for creating
+// and retrieving messages. Additionally, it serves static files from the "./web" directory for
+// all other routes.
+//
+// Returns:
+//   - *mux.Router: The configured HTTP router ready to be used by the server.
+func Setup() *mux.Router {
+	client, cancelFunc, _ := database.Connect()
+	defer cancelFunc()
 
 	repo := repository.NewMessageRepository(client)
 	svc := service.NewMessageService(repo)
