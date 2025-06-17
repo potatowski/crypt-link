@@ -2,11 +2,11 @@ async function encryptAndSend() {
     const msg = document.getElementById('message').value.trim();
     const minutes = parseInt(document.getElementById('validity').value, 10) || 10;
     if (isNaN(minutes) || minutes <= 0 || minutes > 1440) {
-        return alert('Digite um valor válido para a validade (1 a 1440 minutos)');
+        return showModal('Digite um valor válido para a validade (1 a 1440 minutos)');
     }
 
     if (!msg) {
-        return alert('Digite uma mensagem');
+        return showModal('Digite uma mensagem');
     }
 
     const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
@@ -34,7 +34,7 @@ async function encryptAndSend() {
     });
 
     if (!res.ok) {
-        alert('Erro ao salvar a mensagem');
+        showModal('Erro ao salvar a mensagem');
         return;
     }
 
@@ -42,27 +42,41 @@ async function encryptAndSend() {
     document.getElementById('link-input').value = link;
 
     document.getElementById('result').classList.remove('hidden');
-    document.getElementById('form-section').classList.add('hidden');
+
 }
 
-function copyLink() {
-    const input = document.getElementById('link-input');
+function copyBtn(elementId) {
+    const input = document.getElementById(elementId);
+    const button = input.nextElementSibling;
+
     input.select();
     navigator.clipboard.writeText(input.value)
-        .then(() => alert('Link copiado!'))
-        .catch(() => alert('Erro ao copiar o link.'));
+        .then(() => {
+            const originalText = button.innerText;
+            button.innerText = 'Copiado!';
+            button.disabled = true;
+
+            setTimeout(() => {
+                button.innerText = originalText;
+                button.disabled = false;
+            }, 1000);
+        })
+        .catch(() => {
+            showModal('Erro ao copiar texto');
+        });
 }
 
 async function tryDecrypt() {
-    if (!location.hash.includes('#')) return;
+    if (!location.hash.includes('#')) {
+        return;
+    }
 
     const [id, keyBase64] = location.hash.slice(1).split('.', 2);
     if (!id || !keyBase64) return;
 
     const res = await fetch(`/api/message/${id}`);
     if (!res.ok) {
-        document.getElementById('display-section').classList.remove('hidden');
-        document.getElementById('decrypted').innerText = 'Mensagem não encontrada ou já foi lida.';
+        showModal('Mensagem não encontrada ou já foi lida.');
         return;
     }
 
@@ -73,7 +87,7 @@ async function tryDecrypt() {
     const expiresAt = new Date(payload.expiresAt);
 
     if (new Date() > expiresAt) {
-        document.getElementById('decrypted').innerText = 'Mensagem expirada.';
+        showModal('Mensagem não encontrada ou já foi lida.')
         return;
     }
 
@@ -83,13 +97,36 @@ async function tryDecrypt() {
     try {
         const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ciphertext);
         const msg = new TextDecoder().decode(decrypted);
-        document.getElementById('decrypted').innerText = msg;
+        showModal(msg, true);
     } catch (e) {
-        document.getElementById('decrypted').innerText = 'Falha ao descriptografar.';
+        showModal('Falha ao descriptografar.');
     }
+}
 
-    document.getElementById('display-section').classList.remove('hidden');
-    document.getElementById('form-section').classList.add('hidden');
+function showModal(message, sucess = false) {
+    const modal = document.getElementById('modal');
+    const content = document.getElementById('modal-message');
+    const alert = document.getElementById('modal-alert');
+    if (sucess) {
+        const decryptedMessage = document.getElementById('decrypted-message');
+        const copyButton = document.getElementById('decrypted-copy-btn');
+        alert.classList.remove('hidden');
+        alert.innerHTML = `<i class="fa-solid fa-check"></i> ⚠️ LEMBRE-SE: Essa mensagem foi deletada e não pode ser lida novamente.`;
+        decryptedMessage.innerHTML = message;
+        decryptedMessage.classList.remove('hidden');
+        copyButton.classList.remove('hidden');
+        decryptedMessage.focus();
+
+        content.classList.add('hidden');
+    } else {
+        content.innerText = message;
+        content.classList.remove('hidden');
+    }
+    modal.classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('modal').classList.add('hidden');
 }
 
 window.onload = tryDecrypt;
