@@ -4,6 +4,37 @@
 
 ---
 
+## Quick Start
+
+Assuming you have docker and docker compose installed, you can run CryptLink with the following command:
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/potatowski/crypt-link.git
+```
+
+### 2. Navigate to the project directory
+```bash
+cd crypt-link
+```
+
+### 3. Create a `.env` file
+Create a `.env` file in the root directory of the project with the following content:
+
+```bash
+cp api/config/.env.example api/config/.env
+```
+
+### 4. Configure the `.env` file
+Edit the `.env` file to set your desired configuration options
+
+### 5. Start the server with Docker Compose
+```bash
+docker compose up -d
+```
+
+This will start the CryptLink server on port 80. You can then access it at `http://localhost`.
+
 ## 🔐 What is it and how does it work?
 
 CryptLink allows you to send sensitive messages securely and ephemerally. Here’s how it works:
