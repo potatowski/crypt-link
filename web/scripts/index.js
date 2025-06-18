@@ -127,6 +127,18 @@ function showModal(message, sucess = false) {
 
 function closeModal() {
     document.getElementById('modal').classList.add('hidden');
+    const content = document.getElementById('modal-message');
+    const alert = document.getElementById('modal-alert');
+    const decryptedMessage = document.getElementById('decrypted-message');
+    const copyButton = document.getElementById('decrypted-copy-btn');
+
+    content.classList.add('hidden');
+    alert.classList.add('hidden');
+    decryptedMessage.classList.add('hidden');
+    copyButton.classList.add('hidden');
+    decryptedMessage.innerHTML = '';
+    content.innerHTML = '';
+    alert.innerHTML = '';
 }
 
 window.onload = tryDecrypt;
