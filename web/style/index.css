@@ -1,14 +1,41 @@
+:root {
+    --background-color: linear-gradient(135deg, #f3e8ff, #cbb3ff);
+    --text-color: #333;
+    --button-bg: #7e3ff2;
+    --button-text: white;
+    --input-border: #ccc;
+    --modal-bg: #fff;
+    --alert-bg: #f8d7da;
+    --alert-text: #721c24;
+}
+
+.dark-mode {
+    --background-color: linear-gradient(135deg, #3a026e, #7b2ff7);
+    --text-color: #eee;
+    --button-bg: #a66cff;
+    --button-text: white;
+    --input-border: #555;
+    --modal-bg: #1e0d3a;
+    --alert-bg: #4d1c1c;
+    --alert-text: #ffb3b3;
+}
+
 body {
     font-family: sans-serif;
-    background: #f0f0f5;
+    background-image: var(--background-color);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-size: cover;
+    color: var(--text-color);
     padding: 1rem;
     max-width: 700px;
     margin: auto;
+    transition: background-image 0.3s ease, color 0.3s ease;
 }
 
 h1 {
     text-align: center;
-    color: #333;
+    color: var(--text-color);
 }
 
 textarea,
@@ -17,7 +44,7 @@ button {
     padding: 1rem;
     font-size: 1rem;
     border-radius: 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--input-border);
     box-sizing: border-box;
 }
 
@@ -55,14 +82,22 @@ textarea {
 }
 
 button {
-    background: #0070f3;
-    color: white;
+    background: var(--button-bg);
+    color: var(--button-text);
     cursor: pointer;
     border: none;
+    transition: background 0.2s;
 }
 
 .hidden {
-    display: none;
+    display: none !important;
+}
+
+button:focus,
+input:focus,
+textarea:focus {
+    outline: 2px solid #00f;
+    outline-offset: 2px;
 }
 
 #result {
@@ -97,15 +132,16 @@ button {
 }
 
 .modal-content {
-    background-color: #fff;
+    background-color: var(--modal-bg);
     margin: auto;
     margin-top: 10%;
     padding: 1rem;
-    border: 1px solid #888;
+    border: 1px solid var(--input-border);
     width: 80%;
     max-width: 500px;
     border-radius: 8px;
     position: relative;
+    color: var(--text-color);
 }
 
 .close {
@@ -126,13 +162,15 @@ button {
     padding: 1rem;
     font-size: 1rem;
     border-radius: 6px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--input-border);
     margin-bottom: 1rem;
+    color: var(--text-color);
+    background: var(--background-color);
 }
 
 .modal-alert {
-    background: #f8d7da;
-    color: #721c24;
+    background: var(--alert-bg);
+    color: var(--alert-text);
     padding: 1rem;
     border-radius: 6px;
     margin-top: 1rem;
