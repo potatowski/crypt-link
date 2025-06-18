@@ -202,9 +202,62 @@ textarea:focus {
     color: var(--text-color);
 }
 
-#toggle-theme-btn {
+/* #toggle-theme-btn {
     position: fixed;
     top: 1rem;
     right: 1rem;
     z-index: 1;
+} */
+
+.top-bar {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 100;
 }
+
+.top-bar {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 100;
+}
+
+
+.top-bar {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 100;
+}
+
+.top-bar button,
+.top-bar a {
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  background: var(--button-bg);
+  color: var(--button-text);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s;
+  box-sizing: border-box;
+}
+
+.top-bar button:hover,
+.top-bar a:hover {
+  background: #5e2dbb;
+}
+
+
