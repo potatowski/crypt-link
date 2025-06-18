@@ -15,7 +15,7 @@
     <textarea id="message" class="form-textarea" placeholder="Digite sua mensagem secreta aqui..." rows="12"></textarea>
     <div class="row">
       <p>Validade (minutos)</p><input type="number" id="validity" placeholder="Validade (minutos)" min="1" value="10" />
-      <button onclick="encryptAndSend()">Criar Link</button>
+      <button onclick="encryptAndSend()" class="btn-copy-link">Criar Link</button>
     </div>
   </div>
 
@@ -31,7 +31,7 @@
   <div id="modal" class="modal hidden">
     <div class="modal-content">
       <textarea id="decrypted-message" readonly rows="12" class="hidden"></textarea>
-      <button id="decrypted-copy-btn" class="btn hidden" onclick="copyBtn('decrypted-message')"
+      <button id="decrypted-copy-btn" class="btn hidden btn-copy-modal" onclick="copyBtn('decrypted-message')"
         style="margin-top: 1rem;">Copiar</button>
       <span class="close" onclick="closeModal()">&times;</span>
       <div id="modal-message"></div>
