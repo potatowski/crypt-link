@@ -20,11 +20,10 @@ async function encryptAndSend() {
     const ivBase64 = btoa(String.fromCharCode(...iv));
 
     const id = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + minutes * 60_000).toISOString();
-
     const payload = {
         id,
-        encrypted: JSON.stringify({ ciphertext: encryptedBase64, iv: ivBase64, expiresAt })
+        encrypted: JSON.stringify({ ciphertext: encryptedBase64, iv: ivBase64 }),
+        validityTime: minutes
     };
 
     const res = await fetch('/api/message', {

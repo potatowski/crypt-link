@@ -12,8 +12,9 @@ import (
 )
 
 type createRequest struct {
-	ID        string `json:"id"`
-	Encrypted string `json:"encrypted"`
+	ID           string `json:"id"`
+	Encrypted    string `json:"encrypted"`
+	ValidityTime int    `json:"validityTime"`
 }
 
 func CreateMessage(w http.ResponseWriter, r *http.Request) {
@@ -23,23 +24,12 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var inner map[string]interface{}
-	if err := json.Unmarshal([]byte(req.Encrypted), &inner); err != nil {
-		response.Error(w, http.StatusBadRequest, err)
+	if req.ValidityTime <= 0 || req.ValidityTime > 1440 {
+		response.Error(w, http.StatusBadRequest, errors.New("validityTime must be between 1 and 1440 minutes"))
 		return
 	}
 
-	expiresStr, ok := inner["expiresAt"].(string)
-	if !ok {
-		response.Error(w, http.StatusBadRequest, errors.New("expiresAt is required in encrypted data"))
-		return
-	}
-
-	expiresAt, err := time.Parse(time.RFC3339, expiresStr)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, errors.New("invalid expiresAt format, must be RFC3339"))
-		return
-	}
+	expiresAt := time.Now().Add(time.Duration(req.ValidityTime) * time.Minute)
 
 	service := service.NewMessageService()
 	if err := service.Create(req.ID, req.Encrypted, expiresAt); err != nil {
