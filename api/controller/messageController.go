@@ -24,7 +24,7 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ValidityTime <= 0 || req.ValidityTime > 1440 {
+	if req.ValidityTime <= 1 || req.ValidityTime > 1440 {
 		response.Error(w, http.StatusBadRequest, errors.New("validityTime must be between 1 and 1440 minutes"))
 		return
 	}
