@@ -1,10 +1,5 @@
 async function encryptAndSend() {
     const msg = document.getElementById('message').value.trim();
-    const minutes = parseInt(document.getElementById('validity').value, 10) || 10;
-    if (isNaN(minutes) || minutes <= 0 || minutes > 1440) {
-        return showModal('Digite um valor válido para a validade (1 a 1440 minutos)');
-    }
-
     if (!msg) {
         return showModal('Digite uma mensagem');
     }
@@ -22,8 +17,7 @@ async function encryptAndSend() {
     const id = crypto.randomUUID();
     const payload = {
         id,
-        encrypted: JSON.stringify({ ciphertext: encryptedBase64, iv: ivBase64 }),
-        validityTime: minutes
+        encrypted: JSON.stringify({ ciphertext: encryptedBase64, iv: ivBase64 })
     };
 
     const res = await fetch('/api/message', {

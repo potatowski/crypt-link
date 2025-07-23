@@ -12,10 +12,13 @@ import (
 )
 
 type createRequest struct {
-	ID           string `json:"id"`
-	Encrypted    string `json:"encrypted"`
-	ValidityTime int    `json:"validityTime"`
+	ID        string `json:"id"`
+	Encrypted string `json:"encrypted"`
 }
+
+const (
+	ValidityTime = time.Hour * 24 * 30
+)
 
 func CreateMessage(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
@@ -24,13 +27,7 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ValidityTime <= 1 || req.ValidityTime > 1440 {
-		response.Error(w, http.StatusBadRequest, errors.New("validityTime must be between 1 and 1440 minutes"))
-		return
-	}
-
-	expiresAt := time.Now().Add(time.Duration(req.ValidityTime) * time.Minute)
-
+	expiresAt := time.Now().Add(time.Duration(ValidityTime))
 	service := service.NewMessageService()
 	if err := service.Create(req.ID, req.Encrypted, expiresAt); err != nil {
 		response.Error(w, http.StatusInternalServerError, err)
