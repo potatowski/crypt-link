@@ -22,7 +22,7 @@ jobs:
       run: cd api && go mod download
 
     - name: Create env file
-      run: cd api && cp .env.example .env
+      run: cd api && cp config/.env.example config/.env
 
     - name: Run tests
       run: cd api && go test -v ./...
