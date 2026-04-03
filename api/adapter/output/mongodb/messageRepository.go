@@ -22,17 +22,20 @@ func NewMessageRepository(client *mongo.Client) port.MessageRepository {
 func (r *messageRepository) Save(msg domain.Message) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := r.Collection.InsertOne(ctx, msg)
+
+	entity := fromDomain(msg)
+	_, err := r.Collection.InsertOne(ctx, entity)
 	return err
 }
 
 func (r *messageRepository) FindAndDelete(id string) (*domain.Message, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	var msg domain.Message
-	err := r.Collection.FindOneAndDelete(ctx, bson.M{"_id": id}).Decode(&msg)
+	
+	var entity MessageEntity
+	err := r.Collection.FindOneAndDelete(ctx, bson.M{"_id": id}).Decode(&entity)
 	if err != nil {
 		return nil, err
 	}
-	return &msg, nil
+	return entity.toDomain(), nil
 }

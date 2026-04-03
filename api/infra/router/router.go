@@ -2,7 +2,7 @@ package router
 
 import (
 	"crypt-link/adapter/input/controller"
-	"crypt-link/router/routers"
+	"crypt-link/infra/router/routers"
 
 	"github.com/gorilla/mux"
 )
