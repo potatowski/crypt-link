@@ -1,8 +1,8 @@
 package controller
 
 import (
+	"crypt-link/core/port"
 	"crypt-link/response"
-	"crypt-link/service"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -20,7 +20,17 @@ const (
 	ValidityTime = time.Hour * 24 * 30
 )
 
-func CreateMessage(w http.ResponseWriter, r *http.Request) {
+type MessageController struct {
+	service port.MessageService
+}
+
+func NewMessageController(service port.MessageService) *MessageController {
+	return &MessageController{
+		service: service,
+	}
+}
+
+func (c *MessageController) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, err)
@@ -28,8 +38,8 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	expiresAt := time.Now().Add(time.Duration(ValidityTime))
-	service := service.NewMessageService()
-	if err := service.Create(req.ID, req.Encrypted, expiresAt); err != nil {
+
+	if err := c.service.Create(req.ID, req.Encrypted, expiresAt); err != nil {
 		response.Error(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -37,15 +47,14 @@ func CreateMessage(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusCreated, map[string]string{"message": "Message created successfully"})
 }
 
-func GetMessage(w http.ResponseWriter, r *http.Request) {
+func (c *MessageController) GetMessage(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	if id == "" {
 		response.Error(w, http.StatusBadRequest, errors.New("ID is required"))
 		return
 	}
 
-	service := service.NewMessageService()
-	msg, err := service.GetAndInvalidate(id)
+	msg, err := c.service.GetAndInvalidate(id)
 	if err != nil {
 		response.Error(w, http.StatusNotFound, errors.New("message not found or expired"))
 		return
