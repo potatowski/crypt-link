@@ -31,8 +31,12 @@ func (s *messageService) Create(ctx context.Context, id, encrypted string, expir
 		return fmt.Errorf("%w: expiration time must be in the future", domain.ErrInvalidInput)
 	}
 
-	if id == "" || encrypted == "" {
-		return fmt.Errorf("%w: id and encrypted content must not be empty", domain.ErrInvalidInput)
+	if err := domain.ValidateID(id); err != nil {
+		return err
+	}
+
+	if err := domain.ValidateEncrypted(encrypted); err != nil {
+		return err
 	}
 
 	msg := domain.Message{
@@ -45,6 +49,10 @@ func (s *messageService) Create(ctx context.Context, id, encrypted string, expir
 }
 
 func (s *messageService) GetAndInvalidate(ctx context.Context, id string) (*domain.Message, error) {
+	if err := domain.ValidateID(id); err != nil {
+		return nil, err
+	}
+
 	msg, err := s.repo.FindAndDelete(ctx, id)
 	if err != nil {
 		return nil, err

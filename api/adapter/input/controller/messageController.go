@@ -20,10 +20,14 @@ type createRequest struct {
 
 const (
 	ValidityTime = time.Hour * 24 * 30
+
+	// MaxRequestBodyBytes limits the size of request bodies.
+	MaxRequestBodyBytes = 64 * 1024
 )
 
 var (
 	errInvalidBody = errors.New("invalid request body")
+	errBodyTooBig  = errors.New("request body too large")
 	errInvalidData = errors.New("invalid message data")
 	errNotFound    = errors.New("message not found or expired")
 	errInternal    = errors.New("internal server error")
@@ -40,8 +44,21 @@ func NewMessageController(service port.MessageService) *MessageController {
 }
 
 func (c *MessageController) CreateMessage(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBodyBytes)
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+
 	var req createRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := dec.Decode(&req); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			response.Error(w, http.StatusRequestEntityTooLarge, errBodyTooBig)
+			return
+		}
+		response.Error(w, http.StatusBadRequest, errInvalidBody)
+		return
+	}
+	if dec.More() {
 		response.Error(w, http.StatusBadRequest, errInvalidBody)
 		return
 	}
