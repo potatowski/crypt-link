@@ -1,6 +1,8 @@
 module crypt-link
 
-go 1.25.0
+go 1.26.0
+
+toolchain go1.27.4
 
 require (
 	github.com/joho/godotenv v1.5.1
