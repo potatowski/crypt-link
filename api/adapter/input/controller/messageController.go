@@ -8,17 +8,16 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"time"
 )
 
 type createRequest struct {
 	ID        string `json:"id"`
 	Encrypted string `json:"encrypted"`
+	// ExpiresIn is the message lifetime in seconds; optional.
+	ExpiresIn int64 `json:"expiresIn"`
 }
 
 const (
-	ValidityTime = time.Hour * 24 * 30
-
 	// MaxRequestBodyBytes limits the size of request bodies.
 	MaxRequestBodyBytes = 64 * 1024
 )
@@ -61,9 +60,7 @@ func (c *MessageController) CreateMessage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	expiresAt := time.Now().Add(ValidityTime)
-
-	if err := c.service.Create(r.Context(), req.ID, req.Encrypted, expiresAt); err != nil {
+	if err := c.service.Create(r.Context(), req.ID, req.Encrypted, req.ExpiresIn); err != nil {
 		writeServiceError(w, err)
 		return
 	}

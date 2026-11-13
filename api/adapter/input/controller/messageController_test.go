@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
 const testID = "3f2b8c1e-9d4a-4b6f-8e2a-1c5d7f9a0b3e"
@@ -20,11 +19,13 @@ type fakeService struct {
 	getMsg    *domain.Message
 	getErr    error
 
-	gotID string
+	gotID        string
+	gotExpiresIn int64
 }
 
-func (f *fakeService) Create(_ context.Context, id, _ string, _ time.Time) error {
+func (f *fakeService) Create(_ context.Context, id, _ string, expiresIn int64) error {
 	f.gotID = id
+	f.gotExpiresIn = expiresIn
 	return f.createErr
 }
 
@@ -83,6 +84,22 @@ func TestCreateMessage(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCreateMessagePassesExpiresIn(t *testing.T) {
+	svc := &fakeService{}
+	ctrl := NewMessageController(svc)
+	body := fmt.Sprintf(`{"id":%q,"encrypted":"x","expiresIn":3600}`, testID)
+	w := httptest.NewRecorder()
+
+	ctrl.CreateMessage(w, httptest.NewRequest(http.MethodPost, "/api/message", strings.NewReader(body)))
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201", w.Code)
+	}
+	if svc.gotExpiresIn != 3600 {
+		t.Errorf("expiresIn = %d, want 3600", svc.gotExpiresIn)
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypt-link/core/domain"
 	"crypt-link/core/port"
-	"fmt"
 	"time"
 )
 
@@ -25,10 +24,12 @@ func NewMessageService(repo port.MessageRepository, now func() time.Time) port.M
 	}
 }
 
-func (s *messageService) Create(ctx context.Context, id, encrypted string, expiresAt time.Time) error {
-	now := s.now()
-	if expiresAt.Before(now) {
-		return fmt.Errorf("%w: expiration time must be in the future", domain.ErrInvalidInput)
+// Create stores a new message. expiresInSeconds selects the message lifetime;
+// zero uses domain.DefaultExpiry.
+func (s *messageService) Create(ctx context.Context, id, encrypted string, expiresInSeconds int64) error {
+	expiresIn, err := domain.ExpiryFromSeconds(expiresInSeconds)
+	if err != nil {
+		return err
 	}
 
 	if err := domain.ValidateID(id); err != nil {
@@ -39,11 +40,12 @@ func (s *messageService) Create(ctx context.Context, id, encrypted string, expir
 		return err
 	}
 
+	now := s.now()
 	msg := domain.Message{
 		ID:        id,
 		Encrypted: encrypted,
 		CreatedAt: now,
-		ExpiresAt: expiresAt,
+		ExpiresAt: now.Add(expiresIn),
 	}
 	return s.repo.Save(ctx, msg)
 }

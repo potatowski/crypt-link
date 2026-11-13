@@ -9,14 +9,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
 const testID = "3f2b8c1e-9d4a-4b6f-8e2a-1c5d7f9a0b3e"
 
 type stubService struct{ gotID string }
 
-func (s *stubService) Create(context.Context, string, string, time.Time) error { return nil }
+func (s *stubService) Create(context.Context, string, string, int64) error { return nil }
 
 func (s *stubService) GetAndInvalidate(_ context.Context, id string) (*domain.Message, error) {
 	s.gotID = id
