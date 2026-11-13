@@ -17,7 +17,12 @@ import (
 	"time"
 )
 
-const shutdownTimeout = 10 * time.Second
+// The total shutdown budget (HTTP drain plus database disconnect) is 20s,
+// which must stay below the container's stop grace period.
+const (
+	httpShutdownTimeout = 15 * time.Second
+	dbDisconnectTimeout = 5 * time.Second
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -38,7 +43,7 @@ func run() error {
 		return errors.Join(errors.New("failed to connect to database"), err)
 	}
 	defer func() {
-		disconnectCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		disconnectCtx, cancel := context.WithTimeout(context.Background(), dbDisconnectTimeout)
 		defer cancel()
 		if err := dbClient.Disconnect(disconnectCtx); err != nil {
 			slog.Error("failed to disconnect from database", "error", err)
@@ -78,9 +83,12 @@ func run() error {
 		return err
 	case <-ctx.Done():
 	}
+	// Restore default signal handling so a second Ctrl-C kills the process
+	// immediately instead of waiting for the graceful shutdown.
+	stop()
 
 	slog.Info("shutting down")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), httpShutdownTimeout)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
 }
