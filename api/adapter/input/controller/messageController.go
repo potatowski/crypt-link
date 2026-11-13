@@ -1,10 +1,12 @@
 package controller
 
 import (
+	"crypt-link/core/domain"
 	"crypt-link/core/port"
 	"crypt-link/response"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -20,6 +22,13 @@ const (
 	ValidityTime = time.Hour * 24 * 30
 )
 
+var (
+	errInvalidBody = errors.New("invalid request body")
+	errInvalidData = errors.New("invalid message data")
+	errNotFound    = errors.New("message not found or expired")
+	errInternal    = errors.New("internal server error")
+)
+
 type MessageController struct {
 	service port.MessageService
 }
@@ -33,14 +42,14 @@ func NewMessageController(service port.MessageService) *MessageController {
 func (c *MessageController) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, err)
+		response.Error(w, http.StatusBadRequest, errInvalidBody)
 		return
 	}
 
-	expiresAt := time.Now().Add(time.Duration(ValidityTime))
+	expiresAt := time.Now().Add(ValidityTime)
 
-	if err := c.service.Create(req.ID, req.Encrypted, expiresAt); err != nil {
-		response.Error(w, http.StatusInternalServerError, err)
+	if err := c.service.Create(r.Context(), req.ID, req.Encrypted, expiresAt); err != nil {
+		writeServiceError(w, err)
 		return
 	}
 
@@ -54,11 +63,25 @@ func (c *MessageController) GetMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg, err := c.service.GetAndInvalidate(id)
+	msg, err := c.service.GetAndInvalidate(r.Context(), id)
 	if err != nil {
-		response.Error(w, http.StatusNotFound, errors.New("message not found or expired"))
+		writeServiceError(w, err)
 		return
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"encrypted": msg.Encrypted})
+}
+
+// writeServiceError maps domain errors to HTTP status codes without leaking
+// internal error details to the client.
+func writeServiceError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, domain.ErrInvalidInput):
+		response.Error(w, http.StatusBadRequest, errInvalidData)
+	case errors.Is(err, domain.ErrNotFound), errors.Is(err, domain.ErrExpired):
+		response.Error(w, http.StatusNotFound, errNotFound)
+	default:
+		slog.Error("message service error", "error", err)
+		response.Error(w, http.StatusInternalServerError, errInternal)
+	}
 }
