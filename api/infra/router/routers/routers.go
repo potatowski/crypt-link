@@ -2,7 +2,7 @@ package routers
 
 import (
 	"crypt-link/adapter/input/controller"
-	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -18,7 +18,7 @@ func Configurate(r *mux.Router, msgCtrl *controller.MessageController) *mux.Rout
 	routes := BuildMessageRoutes(msgCtrl)
 
 	for _, route := range routes {
-		fmt.Println("Registering route:", route.URI, "with method:", route.Method)
+		slog.Info("registering route", "method", route.Method, "uri", route.URI)
 		r.HandleFunc(route.URI, route.Function).Methods(route.Method)
 	}
 
