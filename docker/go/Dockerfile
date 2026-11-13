@@ -1,4 +1,4 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -7,14 +7,14 @@ RUN go mod download
 
 COPY api/ .
 
-RUN go build -o app ./cmd/server
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/server
 
-FROM alpine:latest
+FROM gcr.io/distroless/static-debian12:nonroot
 
-WORKDIR /root/
-
-COPY --from=builder /app/app .
+COPY --from=builder /out/app /app
 
 EXPOSE 8080
 
-CMD ["./app"]
+USER nonroot:nonroot
+
+ENTRYPOINT ["/app"]
