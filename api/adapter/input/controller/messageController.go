@@ -9,8 +9,6 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
-
-	"github.com/gorilla/mux"
 )
 
 type createRequest struct {
@@ -74,7 +72,7 @@ func (c *MessageController) CreateMessage(w http.ResponseWriter, r *http.Request
 }
 
 func (c *MessageController) GetMessage(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := r.PathValue("id")
 	if id == "" {
 		response.Error(w, http.StatusBadRequest, errors.New("ID is required"))
 		return
