@@ -5,6 +5,9 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,17 +18,90 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.25'
+        go-version-file: api/go.mod
         cache-dependency-path: api/go.sum
 
     - name: Install dependencies
       run: cd api && go mod download
 
-    - name: Create env file
-      run: cd api && cp config/.env.example config/.env
+    - name: Vet
+      run: cd api && go vet ./...
 
     - name: Run tests
-      run: cd api && go test -v ./...
+      run: cd api && go test -race -v ./...
 
     - name: Build
-      run: cd api && go build -o server cmd/server/main.go
+      run: cd api && go build -o server ./cmd/server
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: api/go.mod
+        cache-dependency-path: api/go.sum
+
+    - name: Run integration tests
+      env:
+        MONGO_TEST_URL: mongodb://localhost:27017
+      run: cd api && go test -race -tags integration ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: api/go.mod
+        cache-dependency-path: api/go.sum
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: v2.5
+        working-directory: api
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: api/go.mod
+        cache-dependency-path: api/go.sum
+
+    - name: govulncheck
+      run: cd api && go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Build Docker image (no push)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: docker/go/Dockerfile
+        push: false
