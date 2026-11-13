@@ -29,5 +29,5 @@ func Setup(msgCtrl *controller.MessageController) http.Handler {
 	})
 
 	limiter := middleware.NewRateLimiter(rateLimitRPS, rateLimitBurst)
-	return limiter.Middleware(mux)
+	return middleware.SecurityHeaders(limiter.Middleware(mux))
 }
