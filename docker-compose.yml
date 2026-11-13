@@ -32,7 +32,7 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-cryptlink}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?set MONGO_PASSWORD in .env}
     volumes:
-      - mongo-data:/data/db
+      - mongo7-data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
@@ -42,4 +42,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  mongo-data:
+  mongo7-data:
