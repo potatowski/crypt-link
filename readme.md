@@ -19,11 +19,13 @@ cd crypt-link
 ```
 
 ### 3. Configure the environment
-Copy the example file and set a MongoDB password (use URL-safe characters, e.g. `openssl rand -hex 24`):
+Copy the example file:
 
 ```bash
 cp .env.example .env
 ```
+
+Then edit `.env` and replace `MONGO_PASSWORD=change-me` with a strong, URL-safe password (e.g. the output of `openssl rand -hex 24`).
 
 ### 4. Start the server with Docker Compose
 ```bash
@@ -80,9 +82,11 @@ CryptLink allows you to send sensitive messages securely and ephemerally. Hereâ€
 2. **Temporary storage**: The encrypted version is stored on our servers **without the decryption key**.
 3. **Secret link**: A link is generated containing:
 
-   * A unique identifier (in the path), used only to locate the ciphertext.
-   * The encryption key, stored in the URL fragment (after the `#`), which **is not sent to the server**.
-4. **One-time read**: When the link is opened, the content is:
+   * A unique identifier, used only to locate the ciphertext.
+   * The encryption key.
+
+   Both live in the URL fragment (after the `#`), which **is not sent to the server**; the browser sends only the identifier to the API when the message is revealed.
+4. **One-time read**: When the recipient clicks to reveal, the content is:
 
    * Retrieved from the server.
    * Permanently deleted.
@@ -122,7 +126,8 @@ CryptLink allows you to send sensitive messages securely and ephemerally. Hereâ€
 
 2. In the recipientâ€™s browser:
 
-   * Upon opening the link, the identifier is used to fetch the message.
+   * Upon opening the link, a confirmation is shown; nothing is fetched yet.
+   * After the recipient clicks to reveal, the identifier is used to fetch the message.
    * The server returns the message and immediately deletes it.
    * The key, present in the URL fragment, is used to decrypt the message locally.
 
