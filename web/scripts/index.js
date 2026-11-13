@@ -1,3 +1,30 @@
+// --- Encoding helpers ---
+
+const BASE64_CHUNK = 0x8000;
+const FRAGMENT_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.([A-Za-z0-9_+/-]{43}=?)$/i;
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + BASE64_CHUNK));
+  }
+  return btoa(binary);
+}
+
+// Accepts both standard base64 (legacy links) and base64url, padded or not.
+function base64ToBytes(b64) {
+  let std = b64.replace(/-/g, '+').replace(/_/g, '/');
+  while (std.length % 4 !== 0) std += '=';
+  const binary = atob(std);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function bytesToBase64Url(bytes) {
+  return bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 // --- Services ---
 
 const CryptoService = {
@@ -10,36 +37,48 @@ const CryptoService = {
   async encrypt(message, key, iv) {
     const encodedMsg = new TextEncoder().encode(message);
     const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encodedMsg);
-    return btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+    return bytesToBase64(new Uint8Array(encrypted));
   },
 
   async exportKeyAndIV(key, iv) {
     const rawKey = await crypto.subtle.exportKey('raw', key);
-    const keyBase64 = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
-    const ivBase64 = btoa(String.fromCharCode(...iv));
+    const keyBase64 = bytesToBase64Url(new Uint8Array(rawKey));
+    const ivBase64 = bytesToBase64(iv);
     return { keyBase64, ivBase64 };
   },
 
   async decrypt(ciphertext, keyBase64, ivBase64) {
-    const rawKey = Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0));
+    const rawKey = base64ToBytes(keyBase64);
     const cryptoKey = await crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt']);
     
-    const cipherArray = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0));
-    const ivArray = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
+    const cipherArray = base64ToBytes(ciphertext);
+    const ivArray = base64ToBytes(ivBase64);
     
     const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivArray }, cryptoKey, cipherArray);
     return new TextDecoder().decode(decrypted);
   }
 };
 
+// Server rejects encrypted payloads larger than this (api/core/domain/validation.go).
+const MAX_ENCRYPTED_LENGTH = 48 * 1024;
+
+const SAVE_ERRORS = {
+  413: 'Message is too large.',
+  429: 'Too many requests. Please wait a moment and try again.',
+};
+
 const ApiService = {
-  async saveMessage(id, encryptedContent) {
+  async saveMessage(id, encryptedContent, expiresIn) {
     const res = await fetch('/api/message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, encrypted: encryptedContent })
+      body: JSON.stringify({ id, encrypted: encryptedContent, expiresIn })
     });
-    if (!res.ok) throw new Error('API failed to save message');
+    if (!res.ok) {
+      const err = new Error(`save failed with status ${res.status}`);
+      err.userMessage = SAVE_ERRORS[res.status];
+      throw err;
+    }
     return res.json();
   },
 
@@ -89,6 +128,12 @@ const UI = {
     modal.classList.remove('hidden');
   },
 
+  showModalReveal() {
+    this._resetModal();
+    document.getElementById('reveal-wrapper').classList.remove('hidden');
+    document.getElementById('modal').classList.remove('hidden');
+  },
+
   hideModal() {
     document.getElementById('modal').classList.add('hidden');
   },
@@ -96,6 +141,7 @@ const UI = {
   _resetModal() {
     document.getElementById('modal-message').classList.add('hidden');
     document.getElementById('modal-alert').classList.add('hidden');
+    document.getElementById('reveal-wrapper').classList.add('hidden');
     document.getElementById('decrypted-wrapper').classList.add('hidden');
     document.getElementById('decrypted-message').value = '';
   },
@@ -123,6 +169,11 @@ async function handleEncryptAndSend() {
     return;
   }
 
+  if (!isCryptoAvailable()) {
+    UI.showModalText('This page requires HTTPS (a secure context) to encrypt messages. Please open the site over https://.');
+    return;
+  }
+
   try {
     const { key, iv } = await CryptoService.generateKeyAndIV();
     const encryptedBase64 = await CryptoService.encrypt(message, key, iv);
@@ -130,8 +181,12 @@ async function handleEncryptAndSend() {
     
     const id = crypto.randomUUID();
     const payload = JSON.stringify({ ciphertext: encryptedBase64, iv: ivBase64 });
-    
-    await ApiService.saveMessage(id, payload);
+    if (payload.length > MAX_ENCRYPTED_LENGTH) {
+      UI.showToast('Message is too large.');
+      return;
+    }
+
+    await ApiService.saveMessage(id, payload, Number(document.getElementById('expires-in').value));
     
     const link = `${location.origin}/#${id}.${keyBase64}`;
     document.getElementById('link-input').value = link;
@@ -141,20 +196,33 @@ async function handleEncryptAndSend() {
     UI.showToast('Secure link generated!');
   } catch (err) {
     console.error(err);
-    UI.showToast('Failed to save message.');
+    UI.showToast(err.userMessage || 'Failed to save message.');
   }
 }
 
-async function handleOnLoadDecrypt() {
-  if (!location.hash.includes('#')) return;
-  
-  const [id, keyBase64] = location.hash.slice(1).split('.', 2);
-  if (!id || !keyBase64) return;
+function isCryptoAvailable() {
+  return window.isSecureContext && !!(window.crypto && crypto.subtle);
+}
 
+function handleOnLoadDecrypt() {
+  const match = FRAGMENT_RE.exec(location.hash.slice(1));
+  if (!match) return;
+  const [, id, keyBase64] = match;
+
+  if (!isCryptoAvailable()) {
+    UI.showModalText('This page requires HTTPS (a secure context) to decrypt messages. Please open the link over https://.');
+    return;
+  }
+
+  // Do not fetch yet: the API deletes the message on read, and link-preview
+  // bots / scanners that run JS must not be able to burn it.
+  UI.showModalReveal();
+  document.getElementById('reveal-btn').addEventListener('click', () => revealMessage(id, keyBase64), { once: true });
+}
+
+async function revealMessage(id, keyBase64) {
   try {
     const payload = await ApiService.fetchMessage(id);
-    const expiresAt = new Date(payload.expiresAt); // Note: server currently doesn't send expiresAt inside encrypted string explicitly anymore unless configured that way? Wait, earlier code packed expiresAt in JSON, let's just assume we decrypt what we have or rely on backend to 404 if expired.
-    
     const decryptedText = await CryptoService.decrypt(payload.ciphertext, keyBase64, payload.iv);
     UI.showModalDecrypted(decryptedText);
     
@@ -207,6 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   document.getElementById('encrypt-btn').addEventListener('click', handleEncryptAndSend);
   document.getElementById('modal-close').addEventListener('click', () => UI.hideModal());
+  document.getElementById('link-input').addEventListener('click', (e) => e.target.select());
   document.getElementById('copy-link-btn').addEventListener('click', function() {
     UI.copyToClipboard('link-input', this);
   });
