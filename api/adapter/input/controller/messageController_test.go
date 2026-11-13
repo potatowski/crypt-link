@@ -151,6 +151,26 @@ func TestGetMessage(t *testing.T) {
 	}
 }
 
+func TestGetMessageRejectsHead(t *testing.T) {
+	svc := &fakeService{getMsg: &domain.Message{ID: testID, Encrypted: "cipher"}}
+	ctrl := NewMessageController(svc)
+	r := httptest.NewRequest(http.MethodHead, "/api/message/"+testID, nil)
+	r.SetPathValue("id", testID)
+	w := httptest.NewRecorder()
+
+	ctrl.GetMessage(w, r)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want 405", w.Code)
+	}
+	if svc.gotID != "" {
+		t.Errorf("HEAD must not consume the message, service got id %q", svc.gotID)
+	}
+	if allow := w.Header().Get("Allow"); allow != http.MethodGet {
+		t.Errorf("Allow = %q, want GET", allow)
+	}
+}
+
 func TestGetMessageMissingID(t *testing.T) {
 	ctrl := NewMessageController(&fakeService{})
 	w := httptest.NewRecorder()

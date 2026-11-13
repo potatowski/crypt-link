@@ -69,6 +69,13 @@ func (c *MessageController) CreateMessage(w http.ResponseWriter, r *http.Request
 }
 
 func (c *MessageController) GetMessage(w http.ResponseWriter, r *http.Request) {
+	// ServeMux routes HEAD to GET handlers; reading destroys the message, so only GET may do it.
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		response.Error(w, http.StatusMethodNotAllowed, errors.New("method not allowed"))
+		return
+	}
+
 	id := r.PathValue("id")
 	if id == "" {
 		response.Error(w, http.StatusBadRequest, errors.New("ID is required"))
