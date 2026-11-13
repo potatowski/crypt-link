@@ -38,6 +38,11 @@
       <textarea id="message" class="code-textarea" placeholder="Type your secret message here..." spellcheck="false" aria-label="Secret message"></textarea>
       
       <div id="controls-row" class="controls-row">
+        <select id="expires-in" aria-label="Link expiry">
+          <option value="3600">1 hour</option>
+          <option value="86400">1 day</option>
+          <option value="604800" selected>7 days</option>
+        </select>
         <button id="encrypt-btn" class="btn btn-primary" aria-label="Create secret link">Create Link</button>
       </div>
 
