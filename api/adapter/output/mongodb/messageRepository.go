@@ -12,14 +12,17 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-const opTimeout = 5 * time.Second
+const (
+	opTimeout      = 5 * time.Second
+	collectionName = "messages"
+)
 
 type messageRepository struct {
 	Collection *mongo.Collection
 }
 
 func NewMessageRepository(client *mongo.Client) port.MessageRepository {
-	col := client.Database(config.DatabaseName).Collection("messages")
+	col := client.Database(config.DatabaseName).Collection(collectionName)
 	return &messageRepository{Collection: col}
 }
 
