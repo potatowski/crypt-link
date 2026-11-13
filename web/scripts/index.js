@@ -82,9 +82,30 @@ const ApiService = {
     return res.json();
   },
 
+  // Errors carry `retryable` when the server was not reached or failed before
+  // deleting the message (network error, 429, 5xx): the link is still valid.
   async fetchMessage(id) {
-    const res = await fetch(`/api/message/${id}`);
-    if (!res.ok) throw new Error('Message not found or already read');
+    let res;
+    try {
+      res = await fetch(`/api/message/${id}`);
+    } catch (e) {
+      const err = new Error('network error');
+      err.retryable = true;
+      throw err;
+    }
+    if (res.status === 404) {
+      const err = new Error('Message not found or already read');
+      err.notFound = true;
+      throw err;
+    }
+    if (!res.ok) {
+      const err = new Error(`fetch failed with status ${res.status}`);
+      err.retryable = true;
+      err.userMessage = res.status === 429
+        ? 'Too many requests. Please wait a moment and try again.'
+        : undefined;
+      throw err;
+    }
     const data = await res.json();
     return JSON.parse(data.encrypted);
   }
@@ -205,8 +226,17 @@ function isCryptoAvailable() {
 }
 
 function handleOnLoadDecrypt() {
-  const match = FRAGMENT_RE.exec(location.hash.slice(1));
-  if (!match) return;
+  const rawHash = location.hash.slice(1);
+  if (!rawHash) return;
+
+  // Be lenient with common link mangling: %3D for '=' and one trailing
+  // punctuation character added by chat apps.
+  const cleaned = rawHash.replace(/%3D/gi, '=').replace(/[.,)\]>]$/, '');
+  const match = FRAGMENT_RE.exec(cleaned);
+  if (!match) {
+    UI.showModalText('This link is incomplete or malformed.');
+    return;
+  }
   const [, id, keyBase64] = match;
 
   if (!isCryptoAvailable()) {
@@ -217,21 +247,41 @@ function handleOnLoadDecrypt() {
   // Do not fetch yet: the API deletes the message on read, and link-preview
   // bots / scanners that run JS must not be able to burn it.
   UI.showModalReveal();
-  document.getElementById('reveal-btn').addEventListener('click', () => revealMessage(id, keyBase64), { once: true });
+  const btn = document.getElementById('reveal-btn');
+  btn.addEventListener('click', () => revealMessage(id, keyBase64, btn));
 }
 
-async function revealMessage(id, keyBase64) {
+async function revealMessage(id, keyBase64, btn) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  let clearFragment = true;
   try {
     const payload = await ApiService.fetchMessage(id);
-    const decryptedText = await CryptoService.decrypt(payload.ciphertext, keyBase64, payload.iv);
+    let decryptedText;
+    try {
+      decryptedText = await CryptoService.decrypt(payload.ciphertext, keyBase64, payload.iv);
+    } catch (e) {
+      console.error(e);
+      UI.showModalText('Message is corrupted or the key is wrong.');
+      return;
+    }
     UI.showModalDecrypted(decryptedText);
-    
   } catch (err) {
     console.error(err);
-    UI.showModalText('Message not found, already read, or corrupted.');
+    if (err.retryable) {
+      // Message still exists on the server: keep the fragment and allow retry.
+      clearFragment = false;
+      btn.disabled = false;
+      document.getElementById('reveal-prompt').innerText =
+        err.userMessage || 'Could not reach the server, try again.';
+    } else if (err.notFound) {
+      UI.showModalText('Message not found or already read.');
+    } else {
+      UI.showModalText('Message is corrupted or the key is wrong.');
+    }
   } finally {
     // Clear the fragment so reloading doesn't show confusing errors
-    history.replaceState(null, null, ' ');
+    if (clearFragment) history.replaceState(null, null, ' ');
   }
 }
 
