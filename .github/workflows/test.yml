@@ -24,10 +24,6 @@ jobs:
     - name: Install dependencies
       run: cd api && go mod download
 
-    # TODO: remove once config is read from environment variables (no embedded .env)
-    - name: Create env file
-      run: cd api && cp config/.env.example config/.env
-
     - name: Vet
       run: cd api && go vet ./...
 
@@ -49,10 +45,6 @@ jobs:
         go-version-file: api/go.mod
         cache-dependency-path: api/go.sum
 
-    # TODO: remove once config is read from environment variables (no embedded .env)
-    - name: Create env file
-      run: cd api && cp config/.env.example config/.env
-
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v8
       with:
@@ -71,10 +63,6 @@ jobs:
         go-version-file: api/go.mod
         cache-dependency-path: api/go.sum
 
-    # TODO: remove once config is read from environment variables (no embedded .env)
-    - name: Create env file
-      run: cd api && cp config/.env.example config/.env
-
     - name: govulncheck
       run: cd api && go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
@@ -83,10 +71,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
-
-    # TODO: remove once config is read from environment variables (no embedded .env)
-    - name: Create env file
-      run: cd api && cp config/.env.example config/.env
 
     - name: Build Docker image (no push)
       uses: docker/build-push-action@v6
