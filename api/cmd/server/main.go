@@ -48,7 +48,7 @@ func run() error {
 
 	// Dependency Injection (Hexagonal / Clean Architecture)
 	repo := mongodb.NewMessageRepository(dbClient)
-	svc := service.NewMessageService(repo)
+	svc := service.NewMessageService(repo, nil)
 	ctrl := controller.NewMessageController(svc)
 
 	srv := &http.Server{
