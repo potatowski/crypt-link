@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"crypt-link/config"
 	"crypt-link/core/domain"
 	"crypt-link/core/port"
 	"time"
@@ -15,7 +16,7 @@ type messageRepository struct {
 }
 
 func NewMessageRepository(client *mongo.Client) port.MessageRepository {
-	col := client.Database("onetime").Collection("messages")
+	col := client.Database(config.DatabaseName).Collection("messages")
 	return &messageRepository{Collection: col}
 }
 

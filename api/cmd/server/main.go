@@ -30,6 +30,6 @@ func main() {
 	r := router.Setup(ctrl)
 	fmt.Println("Router setup completed successfully")
 
-	log.Println("Listening on :8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	log.Println("Listening on :" + config.Port)
+	log.Fatal(http.ListenAndServe(":"+config.Port, r))
 }
