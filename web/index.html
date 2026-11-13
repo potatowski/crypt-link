@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8" />
@@ -25,11 +25,11 @@
     
     <nav class="nav-links">
       <div class="icon-links">
-        <button id="toggle-theme-btn" title="Alternar tema" aria-label="Toggle theme">
+        <button id="toggle-theme-btn" title="Toggle theme" aria-label="Toggle theme">
           <svg id="theme-icon-sun" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
           <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         </button>
-        <a id="github-btn" href="https://github.com/potatowski/crypt-link" target="_blank" rel="noopener noreferrer" title="Ver no GitHub" aria-label="GitHub Repository">
+        <a id="github-btn" href="https://github.com/potatowski/crypt-link" target="_blank" rel="noopener noreferrer" title="View on GitHub" aria-label="View on GitHub">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
         </a>
       </div>
@@ -38,19 +38,19 @@
 
   <main class="container">
     <div class="editor-wrapper">
-      <textarea id="message" class="code-textarea" placeholder="Digite sua mensagem secreta aqui..." spellcheck="false" aria-label="Message payload"></textarea>
+      <textarea id="message" class="code-textarea" placeholder="Type your secret message here..." spellcheck="false" aria-label="Secret message"></textarea>
       
       <div id="controls-row" class="controls-row">
-        <button id="encrypt-btn" class="btn btn-primary" aria-label="Create secret link">Criar Link</button>
+        <button id="encrypt-btn" class="btn btn-primary" aria-label="Create secret link">Create Link</button>
       </div>
 
       <div id="result" class="result-wrapper hidden">
         <div class="result-header">
-          <strong>Compartilhe este link:</strong>
+          <strong>Share this link:</strong>
         </div>
         <div class="link-section">
-          <input type="text" id="link-input" class="link-input-glow" readonly onclick="this.select()" aria-label="Generated Link" />
-          <button id="copy-link-btn" class="btn btn-secondary">Copiar</button>
+          <input type="text" id="link-input" class="link-input-glow" readonly onclick="this.select()" aria-label="Generated link" />
+          <button id="copy-link-btn" class="btn btn-secondary">Copy</button>
         </div>
       </div>
     </div>
@@ -69,14 +69,19 @@
 
       <div class="modal-body">
         <div id="modal-alert" class="modal-alert hidden">
-          <span>Mensagem destruída e não poderá ser lida novamente.</span>
+          <span>Message destroyed. It cannot be read again.</span>
         </div>
         
         <p id="modal-message" class="hidden"></p>
+
+        <div id="reveal-wrapper" class="hidden">
+          <p id="reveal-prompt">This message can only be read once. Reveal it?</p>
+          <button id="reveal-btn" class="btn btn-primary mt-1 w-full">Reveal message</button>
+        </div>
         
         <div id="decrypted-wrapper" class="hidden">
-          <textarea id="decrypted-message" readonly rows="12" class="code-textarea modal-textarea"></textarea>
-          <button id="decrypted-copy-btn" class="btn btn-primary mt-1 w-full">Copiar para a área de transferência</button>
+          <textarea id="decrypted-message" readonly rows="12" aria-label="Decrypted message" class="code-textarea modal-textarea"></textarea>
+          <button id="decrypted-copy-btn" class="btn btn-primary mt-1 w-full">Copy to clipboard</button>
         </div>
       </div>
     </div>
