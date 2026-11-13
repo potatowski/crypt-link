@@ -89,6 +89,12 @@ const UI = {
     modal.classList.remove('hidden');
   },
 
+  showModalReveal() {
+    this._resetModal();
+    document.getElementById('reveal-wrapper').classList.remove('hidden');
+    document.getElementById('modal').classList.remove('hidden');
+  },
+
   hideModal() {
     document.getElementById('modal').classList.add('hidden');
   },
@@ -96,6 +102,7 @@ const UI = {
   _resetModal() {
     document.getElementById('modal-message').classList.add('hidden');
     document.getElementById('modal-alert').classList.add('hidden');
+    document.getElementById('reveal-wrapper').classList.add('hidden');
     document.getElementById('decrypted-wrapper').classList.add('hidden');
     document.getElementById('decrypted-message').value = '';
   },
@@ -123,6 +130,11 @@ async function handleEncryptAndSend() {
     return;
   }
 
+  if (!isCryptoAvailable()) {
+    UI.showModalText('This page requires HTTPS (a secure context) to encrypt messages. Please open the site over https://.');
+    return;
+  }
+
   try {
     const { key, iv } = await CryptoService.generateKeyAndIV();
     const encryptedBase64 = await CryptoService.encrypt(message, key, iv);
@@ -145,12 +157,28 @@ async function handleEncryptAndSend() {
   }
 }
 
-async function handleOnLoadDecrypt() {
+function isCryptoAvailable() {
+  return window.isSecureContext && !!(window.crypto && crypto.subtle);
+}
+
+function handleOnLoadDecrypt() {
   if (!location.hash.includes('#')) return;
-  
+
   const [id, keyBase64] = location.hash.slice(1).split('.', 2);
   if (!id || !keyBase64) return;
 
+  if (!isCryptoAvailable()) {
+    UI.showModalText('This page requires HTTPS (a secure context) to decrypt messages. Please open the link over https://.');
+    return;
+  }
+
+  // Do not fetch yet: the API deletes the message on read, and link-preview
+  // bots / scanners that run JS must not be able to burn it.
+  UI.showModalReveal();
+  document.getElementById('reveal-btn').addEventListener('click', () => revealMessage(id, keyBase64), { once: true });
+}
+
+async function revealMessage(id, keyBase64) {
   try {
     const payload = await ApiService.fetchMessage(id);
     const expiresAt = new Date(payload.expiresAt); // Note: server currently doesn't send expiresAt inside encrypted string explicitly anymore unless configured that way? Wait, earlier code packed expiresAt in JSON, let's just assume we decrypt what we have or rely on backend to 404 if expired.
