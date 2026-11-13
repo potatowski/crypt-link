@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestClientIP(t *testing.T) {
@@ -57,5 +59,83 @@ func TestRateLimiterMiddleware(t *testing.T) {
 	}
 	if code := do("203.0.113.8:1"); code != http.StatusOK {
 		t.Fatalf("other client: got %d, want 200", code)
+	}
+}
+
+func TestVisitorKey(t *testing.T) {
+	tests := []struct {
+		ip   string
+		want string
+	}{
+		{"203.0.113.7", "203.0.113.7"},
+		{"::ffff:203.0.113.7", "203.0.113.7"},
+		{"2001:db8:1:2:aaaa:bbbb:cccc:dddd", "2001:db8:1:2::/64"},
+		{"garbage", "garbage"},
+	}
+	for _, tt := range tests {
+		if got := visitorKey(tt.ip); got != tt.want {
+			t.Errorf("visitorKey(%q) = %q, want %q", tt.ip, got, tt.want)
+		}
+	}
+}
+
+func TestRateLimiterIPv6SamePrefixSharesBucket(t *testing.T) {
+	rl := NewRateLimiter(0.001, 1)
+	if !rl.Allow("2001:db8:1:2::1") {
+		t.Fatal("first request should be allowed")
+	}
+	if rl.Allow("2001:db8:1:2:ffff:ffff:ffff:ffff") {
+		t.Fatal("address in the same /64 should share the exhausted bucket")
+	}
+}
+
+func TestRateLimiterIPv6DifferentPrefixSeparateBuckets(t *testing.T) {
+	rl := NewRateLimiter(0.001, 1)
+	if !rl.Allow("2001:db8:1:2::1") {
+		t.Fatal("first request should be allowed")
+	}
+	if !rl.Allow("2001:db8:1:3::1") {
+		t.Fatal("address in a different /64 should have its own bucket")
+	}
+}
+
+func TestRateLimiterIPv4MappedSharesBucketWithIPv4(t *testing.T) {
+	rl := NewRateLimiter(0.001, 1)
+	if !rl.Allow("203.0.113.7") {
+		t.Fatal("first request should be allowed")
+	}
+	if rl.Allow("::ffff:203.0.113.7") {
+		t.Fatal("IPv4-mapped IPv6 should share the IPv4 bucket")
+	}
+}
+
+func TestRateLimiterVisitorCap(t *testing.T) {
+	rl := NewRateLimiter(0.001, 1)
+	rl.maxVisitors = 3
+	now := time.Now()
+	rl.now = func() time.Time { return now }
+
+	for i := 1; i <= 10; i++ {
+		ip := fmt.Sprintf("203.0.113.%d", i)
+		if !rl.Allow(ip) {
+			t.Fatalf("first request from %s should be allowed", ip)
+		}
+	}
+	if got := len(rl.visitors); got != 3 {
+		t.Fatalf("visitors = %d, want 3", got)
+	}
+	// Untracked clients fail open; tracked ones are still limited.
+	if !rl.Allow("203.0.113.10") {
+		t.Fatal("untracked client should be allowed when the map is full")
+	}
+	if rl.Allow("203.0.113.1") {
+		t.Fatal("tracked client should still be rate limited")
+	}
+
+	// After the idle TTL, the next sweep frees room for new clients.
+	now = now.Add(visitorIdleTTL + cleanupInterval + time.Second)
+	rl.Allow("203.0.113.20")
+	if got := len(rl.visitors); got != 1 {
+		t.Fatalf("visitors after sweep = %d, want 1", got)
 	}
 }
