@@ -118,7 +118,7 @@ CryptLink allows you to send sensitive messages securely and ephemerally. Hereâ€
 
    * The message is encrypted with AES-256-GCM using a random key.
    * The key is embedded in the URL fragment.
-   * The encrypted version of the message is sent to the server along with the chosen expiry; the server returns the identifier.
+   * The encrypted version of the message is sent to the server along with a browser-generated UUID v4 identifier and the chosen expiry.
 
 2. In the recipientâ€™s browser:
 
