@@ -56,6 +56,21 @@ The API is configured through environment variables:
 
 With Docker Compose, `DATABASE_URL` is built for you from `MONGO_USERNAME` and `MONGO_PASSWORD` in `.env`.
 
+### Rate limiting
+
+Requests to `/api/` are rate limited per client IP, both by nginx (10 req/s, burst 20) and by the API itself (2 req/s, burst 20). IPv6 clients are grouped by their `/64` prefix. Clients over the limit receive `429 Too Many Requests`.
+
+> Docker's default bridge network has no IPv6. On dual-stack hosts, IPv6 connections reach nginx through Docker's userland proxy and all appear to come from the bridge gateway, so they share one rate-limit bucket. Enable IPv6 on the Compose network (or disable the userland proxy) if you serve IPv6 clients.
+
+### Upgrading
+
+The Compose setup now uses MongoDB 7 with authentication and a new data volume (`mongo7-data`). Data from the previous MongoDB 5 volume (`mongo-data`) is not migrated; since messages are ephemeral, unread messages created before the upgrade are lost. Once you have upgraded, remove the old volume:
+
+```bash
+docker volume ls | grep mongo-data   # find the old volume (prefixed with the project name)
+docker volume rm <project>_mongo-data
+```
+
 ### Local development (without Docker)
 
 Requires Go (see `api/go.mod`) and a running MongoDB:
