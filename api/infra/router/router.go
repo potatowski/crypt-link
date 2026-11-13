@@ -2,9 +2,16 @@ package router
 
 import (
 	"crypt-link/adapter/input/controller"
+	"crypt-link/infra/middleware"
 	"crypt-link/response"
 	"errors"
 	"net/http"
+)
+
+// Per-client-IP rate limit: sustained requests per second and burst size.
+const (
+	rateLimitRPS   = 2
+	rateLimitBurst = 20
 )
 
 var errResourceNotFound = errors.New("resource not found")
@@ -21,5 +28,6 @@ func Setup(msgCtrl *controller.MessageController) http.Handler {
 		response.Error(w, http.StatusNotFound, errResourceNotFound)
 	})
 
-	return mux
+	limiter := middleware.NewRateLimiter(rateLimitRPS, rateLimitBurst)
+	return middleware.SecurityHeaders(limiter.Middleware(mux))
 }
