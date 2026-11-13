@@ -64,7 +64,7 @@ jobs:
         cache-dependency-path: api/go.sum
 
     - name: govulncheck
-      run: cd api && go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      run: cd api && go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
   docker:
     runs-on: ubuntu-latest
