@@ -46,6 +46,10 @@ func run() error {
 	}()
 	slog.Info("database connected")
 
+	if err := mongodb.EnsureIndexes(ctx, dbClient); err != nil {
+		return errors.Join(errors.New("failed to create database indexes"), err)
+	}
+
 	// Dependency Injection (Hexagonal / Clean Architecture)
 	repo := mongodb.NewMessageRepository(dbClient)
 	svc := service.NewMessageService(repo, nil)
