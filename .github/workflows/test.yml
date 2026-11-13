@@ -33,6 +33,33 @@ jobs:
     - name: Build
       run: cd api && go build -o server ./cmd/server
 
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: api/go.mod
+        cache-dependency-path: api/go.sum
+
+    - name: Run integration tests
+      env:
+        MONGO_TEST_URL: mongodb://localhost:27017
+      run: cd api && go test -race -tags integration ./...
+
   lint:
     runs-on: ubuntu-latest
     steps:
