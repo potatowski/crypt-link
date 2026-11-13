@@ -59,6 +59,14 @@ const CryptoService = {
   }
 };
 
+// Server rejects encrypted payloads larger than this (api/core/domain/validation.go).
+const MAX_ENCRYPTED_LENGTH = 48 * 1024;
+
+const SAVE_ERRORS = {
+  413: 'Message is too large.',
+  429: 'Too many requests. Please wait a moment and try again.',
+};
+
 const ApiService = {
   async saveMessage(id, encryptedContent, expiresIn) {
     const res = await fetch('/api/message', {
@@ -66,7 +74,11 @@ const ApiService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, encrypted: encryptedContent, expiresIn })
     });
-    if (!res.ok) throw new Error('API failed to save message');
+    if (!res.ok) {
+      const err = new Error(`save failed with status ${res.status}`);
+      err.userMessage = SAVE_ERRORS[res.status];
+      throw err;
+    }
     return res.json();
   },
 
@@ -169,7 +181,11 @@ async function handleEncryptAndSend() {
     
     const id = crypto.randomUUID();
     const payload = JSON.stringify({ ciphertext: encryptedBase64, iv: ivBase64 });
-    
+    if (payload.length > MAX_ENCRYPTED_LENGTH) {
+      UI.showToast('Message is too large.');
+      return;
+    }
+
     await ApiService.saveMessage(id, payload, Number(document.getElementById('expires-in').value));
     
     const link = `${location.origin}/#${id}.${keyBase64}`;
@@ -180,7 +196,7 @@ async function handleEncryptAndSend() {
     UI.showToast('Secure link generated!');
   } catch (err) {
     console.error(err);
-    UI.showToast('Failed to save message.');
+    UI.showToast(err.userMessage || 'Failed to save message.');
   }
 }
 
