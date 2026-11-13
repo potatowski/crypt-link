@@ -3,6 +3,8 @@
 services:
   nginx:
     ports: !reset []
+    volumes:
+      - ./docker/nginx/realip.conf:/etc/nginx/conf.d/00-realip.conf:ro
 
   caddy:
     image: caddy:2.10-alpine
