@@ -148,7 +148,7 @@ jobs:
             ### Security
             ${security}
 
-            ---
+            ## Dependabot details
 
             <details>
             <summary>Dependabot details (release notes, commits and commands)</summary>
