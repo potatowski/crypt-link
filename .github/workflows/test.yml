@@ -107,3 +107,28 @@ jobs:
         context: .
         file: docker/go/Dockerfile
         push: false
+
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    - name: Set up Go
+      uses: actions/setup-go@v7
+      with:
+        go-version-file: api/go.mod
+        cache-dependency-path: api/go.sum
+
+    - name: Vet the worker entry point
+      run: cd api && GOOS=js GOARCH=wasm go vet ./cmd/worker
+
+    - name: Build the worker
+      run: ./worker/build.sh
+
+    - name: Check the bundle fits the Workers free plan
+      run: |
+        size=$(gzip -9 -c worker/build/app.wasm | wc -c)
+        limit=$((3 * 1024 * 1024))
+        echo "app.wasm gzip: $size bytes (limit $limit)"
+        test "$size" -lt "$limit"
