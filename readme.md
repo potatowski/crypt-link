@@ -89,6 +89,48 @@ cd api
 go test -race ./...
 ```
 
+## ☁️ Deploy to Cloudflare Workers
+
+CryptLink can also run on Cloudflare Workers, with no server to maintain. The Go API is compiled to WebAssembly (with [workers-go](https://github.com/syumai/workers-go)) and stores messages in [D1](https://developers.cloudflare.com/d1/), Cloudflare's SQLite database. The static files from `web/` are served by the same Worker. Everything fits the Workers free plan.
+
+| Docker deployment | Cloudflare deployment |
+|---|---|
+| MongoDB, TTL index | D1 (SQLite), hourly Cron Trigger deletes expired messages |
+| nginx security headers and CSP | `worker/_headers` for static files, `EdgeHeaders` middleware for the API |
+| nginx and in-memory rate limiting | a Cloudflare rate limiting rule (see below) |
+| Caddy and Let's Encrypt | Cloudflare custom domain with automatic HTTPS |
+
+A message is still read and deleted in a single statement (`DELETE ... RETURNING`), so it can be returned only once.
+
+### One-time setup
+
+1. Create the database and note its id:
+
+   ```bash
+   cd worker
+   npx wrangler d1 create crypt-link
+   ```
+
+2. Create an API token (**My Profile → API Tokens**) with the permissions **Account: Workers Scripts: Edit**, **Account: D1: Edit**, **Zone: Workers Routes: Edit** and **Zone: DNS: Edit** (for the zone of your domain).
+
+3. In the GitHub repository, add the secret `CLOUDFLARE_API_TOKEN` and the variables `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_DATABASE_ID` and `CRYPTLINK_DOMAIN` (for example `link.example.com`, a host in a zone of the same account). The `production` environment is created on the first run, and protection rules can be added to it.
+
+4. Add a rate limiting rule for the domain (**Security → WAF → Rate limiting rules**), for example requests whose URI path starts with `/api/`, counted per IP, 20 requests per 10 seconds, action Block. Without it, the Worker has no per-client limit.
+
+### Deploying
+
+Every published release (from the release workflow) runs `.github/workflows/deploy-worker.yml`. The workflow applies pending D1 migrations, then deploys the Worker with the custom domain. It can also be run by hand from the Actions tab for a given tag.
+
+### Running it locally
+
+```bash
+cd worker
+npx wrangler d1 migrations apply crypt-link --local
+npx wrangler dev
+```
+
+Open http://localhost:8787. `localhost` is a secure context, so the browser encryption works without HTTPS.
+
 ## 🔐 What is it and how does it work?
 
 CryptLink allows you to send sensitive messages securely and ephemerally. Here’s how it works:
