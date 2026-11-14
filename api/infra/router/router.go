@@ -33,16 +33,12 @@ func SetupWithoutRateLimit(msgCtrl *controller.MessageController) http.Handler {
 	return middleware.SecurityHeaders(routes(msgCtrl))
 }
 
-const (
-	messagePath   = "/api/message"
-	messagePrefix = messagePath + "/"
-)
-
 // routes dispatches the API requests. It matches paths and methods explicitly
 // instead of using Go 1.22 ServeMux patterns ("POST /api/message",
 // "GET /api/message/{id}"), which TinyGo's ServeMux does not support, while
-// keeping their behaviour: GET routes also match HEAD (the controller rejects
-// it), {id} is one non-empty path segment, and anything else gets a 404.
+// keeping their behaviour: segments are compared after unescaping, GET routes
+// also match HEAD (the controller rejects it), {id} is one non-empty segment,
+// and anything else gets a 404.
 func routes(msgCtrl *controller.MessageController) http.Handler {
 	notFound := func(w http.ResponseWriter) {
 		response.Error(w, http.StatusNotFound, errResourceNotFound)
@@ -50,22 +46,36 @@ func routes(msgCtrl *controller.MessageController) http.Handler {
 
 	mux := http.NewServeMux() // still cleans paths and redirects like before
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.EscapedPath()
+		segments, ok := pathSegments(r.URL.EscapedPath())
 		switch {
-		case path == messagePath && r.Method == http.MethodPost:
+		case !ok:
+			notFound(w)
+		case len(segments) == 2 && isMessagePath(segments) && r.Method == http.MethodPost:
 			msgCtrl.CreateMessage(w, r)
-		case strings.HasPrefix(path, messagePrefix) && (r.Method == http.MethodGet || r.Method == http.MethodHead):
-			segment := strings.TrimPrefix(path, messagePrefix)
-			id, err := url.PathUnescape(segment)
-			if segment == "" || strings.Contains(segment, "/") || err != nil {
-				notFound(w)
-				return
-			}
-			r.SetPathValue("id", id)
+		case len(segments) == 3 && isMessagePath(segments) && segments[2] != "" &&
+			(r.Method == http.MethodGet || r.Method == http.MethodHead):
+			r.SetPathValue("id", segments[2])
 			msgCtrl.GetMessage(w, r)
 		default:
 			notFound(w)
 		}
 	})
 	return mux
+}
+
+func isMessagePath(segments []string) bool {
+	return segments[0] == "api" && segments[1] == "message"
+}
+
+// pathSegments splits an escaped path into unescaped segments.
+func pathSegments(escapedPath string) ([]string, bool) {
+	segments := strings.Split(strings.TrimPrefix(escapedPath, "/"), "/")
+	for i, seg := range segments {
+		unescaped, err := url.PathUnescape(seg)
+		if err != nil {
+			return nil, false
+		}
+		segments[i] = unescaped
+	}
+	return segments, true
 }
