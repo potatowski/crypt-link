@@ -1,12 +1,12 @@
 package port
 
 import (
+	"context"
 	"crypt-link/core/domain"
-	"time"
 )
 
 // MessageService defines the inbound port for message business logic.
 type MessageService interface {
-	Create(id, encrypted string, expiresAt time.Time) error
-	GetAndInvalidate(id string) (*domain.Message, error)
+	Create(ctx context.Context, id, encrypted string, expiresInSeconds int64) error
+	GetAndInvalidate(ctx context.Context, id string) (*domain.Message, error)
 }
