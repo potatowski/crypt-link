@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bump-minor-pre-major": true,
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "crypt-link",
+      "include-component-in-tag": false,
+      "last-release-sha": "87b355097e08b6892a72577dff568b724dd6c5a6",
+      "changelog-sections": [
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Bug Fixes" },
+        { "type": "perf", "section": "Performance" },
+        { "type": "refactor", "section": "Refactoring" },
+        { "type": "build", "section": "Build" },
+        { "type": "docs", "section": "Documentation", "hidden": true },
+        { "type": "chore", "section": "Miscellaneous", "hidden": true },
+        { "type": "ci", "section": "CI", "hidden": true },
+        { "type": "test", "section": "Tests", "hidden": true },
+        { "type": "style", "section": "Style", "hidden": true }
+      ]
+    }
+  }
+}
