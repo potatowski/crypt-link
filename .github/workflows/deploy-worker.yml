@@ -65,6 +65,9 @@ jobs:
           go-version-file: api/go.mod
           cache-dependency-path: api/go.sum
 
+      - name: Install TinyGo
+        run: ./worker/install-tinygo.sh "$RUNNER_TEMP/tinygo" >> "$GITHUB_PATH"
+
       - name: Configure the D1 database and custom domain
         working-directory: worker
         run: |

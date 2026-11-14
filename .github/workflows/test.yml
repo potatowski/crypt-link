@@ -120,8 +120,14 @@ jobs:
         go-version-file: api/go.mod
         cache-dependency-path: api/go.sum
 
+    - name: Install TinyGo
+      run: ./worker/install-tinygo.sh "$RUNNER_TEMP/tinygo" >> "$GITHUB_PATH"
+
     - name: Vet the worker entry point
       run: cd api && GOOS=js GOARCH=wasm go vet ./cmd/worker
+
+    - name: Test the router with TinyGo
+      run: cd api && tinygo test ./infra/router/ ./adapter/input/controller/ ./core/service/
 
     - name: Build the worker
       run: ./worker/build.sh
