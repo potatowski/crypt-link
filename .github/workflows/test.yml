@@ -1,5 +1,6 @@
 name: Run tests
 on:
+  # push to main must stay: sync-dev's main -> dev PR relies on these checks on main's commit
   push:
     branches:
       - main
