@@ -6,8 +6,8 @@ toolchain go1.27.4
 
 require (
 	github.com/joho/godotenv v1.5.1
-	go.mongodb.org/mongo-driver v1.17.9
-	golang.org/x/time v0.15.0
+	go.mongodb.org/mongo-driver v1.17.10
+	golang.org/x/time v0.16.0
 )
 
 require (
