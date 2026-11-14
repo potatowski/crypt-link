@@ -11,14 +11,15 @@ import (
 	"time"
 )
 
-// Schema creates the messages table and the index used to purge expired rows.
+// Schema creates the messages table. There is no index on expires_at: on D1
+// every index update counts as a row written, while the hourly purge only
+// scans a small table.
 const Schema = `CREATE TABLE IF NOT EXISTS messages (
 	id TEXT PRIMARY KEY,
 	encrypted TEXT NOT NULL,
 	created_at INTEGER NOT NULL,
 	expires_at INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS messages_expires_at ON messages (expires_at);`
+);`
 
 // MessageRepository is a port.MessageRepository backed by database/sql.
 type MessageRepository struct {
