@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS messages (
+	id TEXT PRIMARY KEY,
+	encrypted TEXT NOT NULL,
+	created_at INTEGER NOT NULL,
+	expires_at INTEGER NOT NULL
+);
