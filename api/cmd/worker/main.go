@@ -36,7 +36,10 @@ func main() {
 	cron.ScheduleTaskNonBlock(func(ctx context.Context) error {
 		n, err := repo.DeleteExpired(ctx, time.Now().UTC())
 		if err != nil {
-			return err
+			// workers-go panics when a scheduled task returns an error; log it
+			// instead; the next hourly run retries.
+			slog.Error("failed to delete expired messages", "error", err)
+			return nil
 		}
 		slog.Info("expired messages deleted", "count", n)
 		return nil
