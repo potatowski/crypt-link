@@ -91,7 +91,7 @@ go test -race ./...
 
 ## ☁️ Deploy to Cloudflare Workers
 
-CryptLink can also run on Cloudflare Workers, with no server to maintain. The Go API is compiled to WebAssembly (with [workers-go](https://github.com/syumai/workers-go)) and stores messages in [D1](https://developers.cloudflare.com/d1/), Cloudflare's SQLite database. The static files from `web/` are served by the same Worker. Everything fits the Workers free plan.
+CryptLink can also run on Cloudflare Workers, with no server to maintain. The Go API is compiled to WebAssembly (with [workers-go](https://github.com/syumai/workers-go)) and stores messages in [D1](https://developers.cloudflare.com/d1/), Cloudflare's SQLite database. The static files from `web/` are served by the same Worker.
 
 | Docker deployment | Cloudflare deployment |
 |---|---|
@@ -111,11 +111,13 @@ A message is still read and deleted in a single statement (`DELETE ... RETURNING
    npx wrangler d1 create crypt-link
    ```
 
-2. Create an API token (**My Profile → API Tokens**) with the permissions **Account: Workers Scripts: Edit**, **Account: D1: Edit**, **Zone: Workers Routes: Edit** and **Zone: DNS: Edit** (for the zone of your domain).
+2. Create an API token (**My Profile → API Tokens**, starting from the **Edit Cloudflare Workers** template) with at least **Account: Workers Scripts: Edit**, **Account: D1: Edit**, **Zone: Zone: Read** and **Zone: Workers Routes: Edit** (for the zone of your domain).
 
-3. In the GitHub repository, add the secret `CLOUDFLARE_API_TOKEN` and the variables `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_DATABASE_ID` and `CRYPTLINK_DOMAIN` (for example `link.example.com`, a host in a zone of the same account). The `production` environment is created on the first run, and protection rules can be added to it.
+3. In the GitHub repository, add the secret `CLOUDFLARE_API_TOKEN` and the variables `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_D1_DATABASE_ID` and `CRYPTLINK_DOMAIN` (for example `link.example.com`, a host in a zone of the same account). The `production` environment is created on the first run; if you add a deployment branch rule to it, allow tags matching `v*`.
 
-4. Add a rate limiting rule for the domain (**Security → WAF → Rate limiting rules**), for example requests whose URI path starts with `/api/`, counted per IP, 20 requests per 10 seconds, action Block. Without it, the Worker has no per-client limit.
+4. Add a rate limiting rule for the domain (**Security → WAF → Rate limiting rules**), for example requests to your host whose URI path starts with `/api/`, counted per IP, 20 requests per 10 seconds, action Block. Without it, the Worker has no per-client limit. The Worker is only served on the custom domain (`workers_dev` and preview URLs are disabled), so the rule cannot be bypassed.
+
+> **Free plan limits.** The Workers free plan allows 100,000 requests per day, and D1 allows 100,000 rows written per day; each message costs about 2 row writes (insert and delete). A single client within the rate limit can still use up these daily quotas, after which requests fail until the next day. For a public instance, use a stricter rule on `POST /api/message` or the Workers Paid plan.
 
 ### Deploying
 
