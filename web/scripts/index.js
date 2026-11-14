@@ -60,11 +60,11 @@ const CryptoService = {
 };
 
 const ApiService = {
-  async saveMessage(id, encryptedContent) {
+  async saveMessage(id, encryptedContent, expiresIn) {
     const res = await fetch('/api/message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, encrypted: encryptedContent })
+      body: JSON.stringify({ id, encrypted: encryptedContent, expiresIn })
     });
     if (!res.ok) throw new Error('API failed to save message');
     return res.json();
@@ -170,7 +170,7 @@ async function handleEncryptAndSend() {
     const id = crypto.randomUUID();
     const payload = JSON.stringify({ ciphertext: encryptedBase64, iv: ivBase64 });
     
-    await ApiService.saveMessage(id, payload);
+    await ApiService.saveMessage(id, payload, Number(document.getElementById('expires-in').value));
     
     const link = `${location.origin}/#${id}.${keyBase64}`;
     document.getElementById('link-input').value = link;
