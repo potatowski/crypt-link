@@ -24,7 +24,9 @@ func Setup(msgCtrl *controller.MessageController) http.Handler {
 }
 
 // SetupWithoutRateLimit returns the API handler without the in-memory rate
-// limiter, for runtimes where rate limiting is enforced in front of the API.
+// limiter, for runtimes where in-memory state does not persist between
+// requests (Cloudflare Workers creates a new instance per request) and rate
+// limiting is enforced in front of the API.
 func SetupWithoutRateLimit(msgCtrl *controller.MessageController) http.Handler {
 	return middleware.SecurityHeaders(routes(msgCtrl))
 }
