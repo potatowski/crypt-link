@@ -77,3 +77,25 @@ func TestRateLimitApplied(t *testing.T) {
 		t.Fatalf("status after burst = %d, want 429", last)
 	}
 }
+
+func TestSetupWithoutRateLimit(t *testing.T) {
+	h := SetupWithoutRateLimit(controller.NewMessageController(&stubService{}))
+
+	// Far more requests than the in-memory limiter's burst: none may be rejected.
+	for i := 0; i < 3*rateLimitBurst; i++ {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/message/"+testID, nil))
+		if w.Code != http.StatusOK {
+			t.Fatalf("request %d: status = %d, want %d", i, w.Code, http.StatusOK)
+		}
+		if got := w.Header().Get("Cache-Control"); got != "no-store" {
+			t.Fatalf("Cache-Control = %q, want no-store", got)
+		}
+	}
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/unknown", nil))
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("unknown route: status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}

@@ -16,8 +16,20 @@ const (
 
 var errResourceNotFound = errors.New("resource not found")
 
-// Setup registers the API routes and returns the HTTP handler.
+// Setup registers the API routes and returns the HTTP handler, with per-client-IP
+// rate limiting for deployments where the API sees the client address.
 func Setup(msgCtrl *controller.MessageController) http.Handler {
+	limiter := middleware.NewRateLimiter(rateLimitRPS, rateLimitBurst)
+	return middleware.SecurityHeaders(limiter.Middleware(routes(msgCtrl)))
+}
+
+// SetupWithoutRateLimit returns the API handler without the in-memory rate
+// limiter, for runtimes where rate limiting is enforced in front of the API.
+func SetupWithoutRateLimit(msgCtrl *controller.MessageController) http.Handler {
+	return middleware.SecurityHeaders(routes(msgCtrl))
+}
+
+func routes(msgCtrl *controller.MessageController) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/message", msgCtrl.CreateMessage)
@@ -27,7 +39,5 @@ func Setup(msgCtrl *controller.MessageController) http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusNotFound, errResourceNotFound)
 	})
-
-	limiter := middleware.NewRateLimiter(rateLimitRPS, rateLimitBurst)
-	return middleware.SecurityHeaders(limiter.Middleware(mux))
+	return mux
 }
