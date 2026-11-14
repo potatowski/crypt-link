@@ -14,3 +14,5 @@ rm -rf build
 mkdir -p build/public
 cp -R ../web/. build/public/
 cp _headers build/public/_headers
+# Replace the generated entry point with one that reuses the Go instance.
+cp src/worker.mjs build/worker.mjs

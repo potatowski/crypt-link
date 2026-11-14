@@ -46,8 +46,7 @@ func main() {
 	})
 	workers.Ready()
 
-	select {
-	case <-workers.Done():
-	case <-cron.Done():
-	}
+	// Stay alive: worker/src/worker.mjs reuses this instance for every request
+	// and Cron Trigger in the isolate instead of starting a new one each time.
+	select {}
 }
