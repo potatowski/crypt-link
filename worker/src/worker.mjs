@@ -3,14 +3,20 @@
 // more CPU time than the Workers free plan allows per request. Here one Go
 // instance per isolate is reused across requests and Cron Triggers.
 //
-// The instance is started inside the first request, not at isolate load:
-// an instance created outside a request is never resumed by the runtime
-// ("Worker's code had hung").
+// Constraints from the Workers runtime:
+// - An instance created outside a request is never resumed ("Worker's code
+//   had hung"), so it is started inside the first request.
+// - A promise can only settle in the request that created it, so a request
+//   never awaits a promise created by another request. State shared between
+//   requests is plain values (the current entry and its flags), not promises.
 import "./wasm_exec.js";
 import { createRuntimeContext, loadModule } from "./runtime.mjs";
 
-// Recycle the instance after this many invocations to bound memory growth.
-const MAX_INVOCATIONS = 500;
+// Start a fresh instance once the current one has served this many
+// invocations or grown past this much linear memory. Each restart costs one
+// cold start inside a request, so these are set high.
+const MAX_INVOCATIONS = 10000;
+const MAX_MEMORY_BYTES = 64 * 1024 * 1024;
 
 globalThis.tryCatch = (fn) => {
   try {
@@ -20,8 +26,21 @@ globalThis.tryCatch = (fn) => {
   }
 };
 
-let current; // { binding, context, invocations }
-let starting;
+let current; // instance entry reused by later requests
+
+function drop(entry) {
+  entry.broken = true;
+  if (current === entry) current = undefined;
+}
+
+function usable(entry) {
+  return (
+    entry !== undefined &&
+    !entry.broken &&
+    entry.invocations < MAX_INVOCATIONS &&
+    entry.memory.buffer.byteLength < MAX_MEMORY_BYTES
+  );
+}
 
 async function start(env, ctx) {
   const mod = await loadModule();
@@ -38,31 +57,60 @@ async function start(env, ctx) {
     workers: { ready: () => ready() },
   });
 
-  const entry = { binding, context, invocations: 0 };
-  // The Go program blocks forever once ready; if it ever exits, drop it.
-  go.run(instance, context).finally(() => {
-    if (current === entry) current = undefined;
+  const entry = { binding, context, memory: instance.exports.memory, invocations: 0, broken: false };
+
+  // A trap (a Go panic under TinyGo, for example) can surface from any entry
+  // into the module, not only from the call a request is awaiting. Flag the
+  // instance so no new request uses it; requests still waiting on it are
+  // cancelled by the runtime, and the next request starts a new instance.
+  const guard = (fn) =>
+    function (...args) {
+      try {
+        return fn.apply(this, args);
+      } catch (e) {
+        if (e instanceof Error) drop(entry);
+        throw e;
+      }
+    };
+  const exports = {
+    ...instance.exports,
+    resume: guard(instance.exports.resume),
+    go_scheduler: guard(instance.exports.go_scheduler),
+  };
+
+  // The Go program blocks forever once ready; its run promise settles only if
+  // it exits or traps. Fail this request if that happens before it is ready.
+  const run = go.run({ exports }, context);
+  const exitedEarly = run.then(() => {
+    throw new Error("Go program exited before it was ready");
   });
-  await readyPromise;
+  exitedEarly.catch(() => {});
+  try {
+    await Promise.race([readyPromise, exitedEarly]);
+  } catch (e) {
+    drop(entry);
+    throw e;
+  }
   return entry;
 }
 
 async function acquire(env, ctx) {
-  if (current && current.invocations >= MAX_INVOCATIONS) {
-    current = undefined;
-  }
-  if (!current) {
-    starting ??= start(env, ctx).finally(() => {
-      starting = undefined;
-    });
-    current = await starting;
+  let entry = current;
+  if (!usable(entry)) {
+    if (current !== undefined) drop(current);
+    // Requests that find no usable instance each start their own; the first
+    // to finish becomes the shared one.
+    entry = await start(env, ctx);
+    if (!usable(current)) current = entry;
   }
   // The Go side reads env and ctx from this object on every use. env is the
-  // same for every invocation of this Worker; ctx belongs to this invocation.
-  current.context.env = env;
-  current.context.ctx = ctx;
-  current.invocations++;
-  return current;
+  // same for every invocation of this Worker. ctx is shared by concurrent
+  // invocations, so APIs that depend on it (waitUntil, passThroughOnException)
+  // must not be used from Go with this entry point.
+  entry.context.env = env;
+  entry.context.ctx = ctx;
+  entry.invocations++;
+  return entry;
 }
 
 async function invoke(env, ctx, call) {
@@ -71,7 +119,7 @@ async function invoke(env, ctx, call) {
     return await call(entry.binding);
   } catch (e) {
     // A failed call may leave the Go runtime in a bad state: start fresh next time.
-    if (current === entry) current = undefined;
+    drop(entry);
     throw e;
   }
 }
