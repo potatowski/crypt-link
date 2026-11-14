@@ -123,6 +123,9 @@ jobs:
     - name: Install TinyGo
       run: ./worker/install-tinygo.sh "$RUNNER_TEMP/tinygo" >> "$GITHUB_PATH"
 
+    - name: Show TinyGo and Go versions
+      run: tinygo version
+
     - name: Vet the worker entry point
       run: cd api && GOOS=js GOARCH=wasm go vet ./cmd/worker
 
