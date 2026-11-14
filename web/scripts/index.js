@@ -1,3 +1,30 @@
+// --- Encoding helpers ---
+
+const BASE64_CHUNK = 0x8000;
+const FRAGMENT_RE = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.([A-Za-z0-9_+/-]{43}=?)$/i;
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + BASE64_CHUNK));
+  }
+  return btoa(binary);
+}
+
+// Accepts both standard base64 (legacy links) and base64url, padded or not.
+function base64ToBytes(b64) {
+  let std = b64.replace(/-/g, '+').replace(/_/g, '/');
+  while (std.length % 4 !== 0) std += '=';
+  const binary = atob(std);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function bytesToBase64Url(bytes) {
+  return bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 // --- Services ---
 
 const CryptoService = {
@@ -10,22 +37,22 @@ const CryptoService = {
   async encrypt(message, key, iv) {
     const encodedMsg = new TextEncoder().encode(message);
     const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encodedMsg);
-    return btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+    return bytesToBase64(new Uint8Array(encrypted));
   },
 
   async exportKeyAndIV(key, iv) {
     const rawKey = await crypto.subtle.exportKey('raw', key);
-    const keyBase64 = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
-    const ivBase64 = btoa(String.fromCharCode(...iv));
+    const keyBase64 = bytesToBase64Url(new Uint8Array(rawKey));
+    const ivBase64 = bytesToBase64(iv);
     return { keyBase64, ivBase64 };
   },
 
   async decrypt(ciphertext, keyBase64, ivBase64) {
-    const rawKey = Uint8Array.from(atob(keyBase64), c => c.charCodeAt(0));
+    const rawKey = base64ToBytes(keyBase64);
     const cryptoKey = await crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['decrypt']);
     
-    const cipherArray = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0));
-    const ivArray = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
+    const cipherArray = base64ToBytes(ciphertext);
+    const ivArray = base64ToBytes(ivBase64);
     
     const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: ivArray }, cryptoKey, cipherArray);
     return new TextDecoder().decode(decrypted);
@@ -162,10 +189,9 @@ function isCryptoAvailable() {
 }
 
 function handleOnLoadDecrypt() {
-  if (!location.hash.includes('#')) return;
-
-  const [id, keyBase64] = location.hash.slice(1).split('.', 2);
-  if (!id || !keyBase64) return;
+  const match = FRAGMENT_RE.exec(location.hash.slice(1));
+  if (!match) return;
+  const [, id, keyBase64] = match;
 
   if (!isCryptoAvailable()) {
     UI.showModalText('This page requires HTTPS (a secure context) to decrypt messages. Please open the link over https://.');
@@ -181,8 +207,6 @@ function handleOnLoadDecrypt() {
 async function revealMessage(id, keyBase64) {
   try {
     const payload = await ApiService.fetchMessage(id);
-    const expiresAt = new Date(payload.expiresAt); // Note: server currently doesn't send expiresAt inside encrypted string explicitly anymore unless configured that way? Wait, earlier code packed expiresAt in JSON, let's just assume we decrypt what we have or rely on backend to 404 if expired.
-    
     const decryptedText = await CryptoService.decrypt(payload.ciphertext, keyBase64, payload.iv);
     UI.showModalDecrypted(decryptedText);
     
