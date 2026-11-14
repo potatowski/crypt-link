@@ -6,9 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Tag or branch to deploy
+        description: Release tag to deploy (vX.Y.Z)
         required: true
-        default: main
 
 permissions:
   contents: read
@@ -26,6 +25,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       D1_DATABASE_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
       DOMAIN: ${{ vars.CRYPTLINK_DOMAIN }}
+      REF: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.ref }}
     steps:
       - name: Check configuration
         env:
@@ -40,11 +40,23 @@ jobs:
             echo "::error::missing configuration:$missing"
             exit 1
           fi
+          if ! printf '%s' "$REF" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::only release tags (vX.Y.Z) can be deployed, got: $REF"
+            exit 1
+          fi
+          if ! printf '%s' "$DOMAIN" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'; then
+            echo "::error::CRYPTLINK_DOMAIN is not a valid host name"
+            exit 1
+          fi
+          if ! printf '%s' "$D1_DATABASE_ID" | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+            echo "::error::CLOUDFLARE_D1_DATABASE_ID is not a UUID"
+            exit 1
+          fi
 
       - name: Checkout code
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.ref }}
+          ref: ${{ env.REF }}
           persist-credentials: false
 
       - name: Set up Go
@@ -58,6 +70,7 @@ jobs:
         run: |
           sed -i "s/^database_id = .*/database_id = \"$D1_DATABASE_ID\"/" wrangler.toml
           sed -i "/^compatibility_date = /a routes = [{ pattern = \"$DOMAIN\", custom_domain = true }]" wrangler.toml
+          test "$(grep -cE '^(database_id|routes) = ' wrangler.toml)" -eq 2
           grep -E '^(database_id|routes) = ' wrangler.toml
 
       - name: Apply D1 migrations and deploy
