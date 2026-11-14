@@ -99,3 +99,41 @@ func TestSetupWithoutRateLimit(t *testing.T) {
 		t.Fatalf("unknown route: status = %d, want %d", w.Code, http.StatusNotFound)
 	}
 }
+
+// TestRoutingEdgeCases pins the routing behaviour of the original Go 1.22
+// patterns ("POST /api/message", "GET /api/message/{id}"), so the router keeps
+// it on toolchains whose ServeMux lacks method and wildcard patterns (TinyGo).
+func TestRoutingEdgeCases(t *testing.T) {
+	svc := &stubService{}
+	h := Setup(controller.NewMessageController(svc))
+
+	tests := []struct {
+		method, path string
+		wantStatus   int
+		wantID       string
+	}{
+		{http.MethodHead, "/api/message/" + testID, http.StatusMethodNotAllowed, ""},
+		{http.MethodPut, "/api/message", http.StatusNotFound, ""},
+		{http.MethodGet, "/api/message/", http.StatusNotFound, ""},
+		{http.MethodGet, "/api/message/" + testID + "/extra", http.StatusNotFound, ""},
+		{http.MethodGet, "/api/message/a%2Fb", http.StatusOK, "a/b"},
+		{http.MethodGet, "/api/messages", http.StatusNotFound, ""},
+		{http.MethodPost, "/api/message/" + testID, http.StatusNotFound, ""},
+		{http.MethodGet, "/", http.StatusNotFound, ""},
+		{http.MethodGet, "/api/message/" + testID, http.StatusOK, testID},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			svc.gotID = ""
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, httptest.NewRequest(tt.method, tt.path, nil))
+			if w.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d (body: %s)", w.Code, tt.wantStatus, w.Body.String())
+			}
+			if svc.gotID != tt.wantID {
+				t.Fatalf("service got id %q, want %q", svc.gotID, tt.wantID)
+			}
+		})
+	}
+}
