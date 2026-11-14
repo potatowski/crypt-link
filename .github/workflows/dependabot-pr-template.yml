@@ -30,24 +30,39 @@ jobs:
         with:
           script: |
             const marker = '<!-- dependabot-pr-template -->';
+            const start = '<!-- dependabot-original:start -->';
+            const end = '<!-- dependabot-original:end -->';
+            const legacyStart = '<summary>Dependabot details (release notes, commits and commands)</summary>';
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: context.payload.pull_request.number,
             });
-            const original = pr.body || '';
-            if (original.includes(marker)) {
-              core.info('Body already uses the template.');
-              return;
+            const current = pr.body || '';
+            let original = current;
+            if (current.includes(marker)) {
+              if (current.includes(start) && current.includes(end)) {
+                original = current.slice(current.indexOf(start) + start.length, current.lastIndexOf(end)).trim();
+              } else if (current.includes(legacyStart)) {
+                original = current.slice(current.indexOf(legacyStart) + legacyStart.length).replace(/\s*<\/details>\s*$/, '').trim();
+              } else {
+                core.info('Body uses the template but the original text was not found; leaving it untouched.');
+                return;
+              }
             }
 
             const deps = JSON.parse(process.env.DEPENDENCIES || '[]');
             const ecosystem = process.env.ECOSYSTEM || '';
-            const directory = process.env.DIRECTORY || '/';
+            const titleDir = (pr.title.match(/\bin (\/\S*)/) || [])[1];
+            const directory = titleDir || (process.env.DIRECTORY || '/').replace(new RegExp(`/${pr.base.ref}$`), '') || '/';
             const updateType = (process.env.UPDATE_TYPE || '').replace('version-update:semver-', '') || 'unknown';
             const group = process.env.GROUP;
-            const shipped = ecosystem !== 'github_actions';
-            const label = { gomod: 'Go module', docker: 'Docker image', docker_compose: 'Compose image', github_actions: 'GitHub Action' }[ecosystem] || ecosystem;
+            const shipped = !['github_actions', 'github-actions'].includes(ecosystem);
+            const label = {
+              go_modules: 'Go module', gomod: 'Go module',
+              docker: 'Docker image', docker_compose: 'Compose image', 'docker-compose': 'Compose image',
+              github_actions: 'GitHub Action', 'github-actions': 'GitHub Action',
+            }[ecosystem] || ecosystem;
 
             const bump = (d) => `\`${d.dependencyName}\` from \`${d.prevVersion}\` to \`${d.newVersion}\``;
             const bullets = deps.map((d) => `- Bump ${bump(d)}`).join('\n') || '-';
@@ -138,11 +153,19 @@ jobs:
             <details>
             <summary>Dependabot details (release notes, commits and commands)</summary>
 
+            ${start}
+
             ${original}
+
+            ${end}
 
             </details>
             `;
 
+            if (body === current) {
+              core.info('Body already up to date.');
+              return;
+            }
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
