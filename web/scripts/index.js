@@ -259,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   document.getElementById('encrypt-btn').addEventListener('click', handleEncryptAndSend);
   document.getElementById('modal-close').addEventListener('click', () => UI.hideModal());
+  document.getElementById('link-input').addEventListener('click', (e) => e.target.select());
   document.getElementById('copy-link-btn').addEventListener('click', function() {
     UI.copyToClipboard('link-input', this);
   });
