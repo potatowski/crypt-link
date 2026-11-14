@@ -1,0 +1,88 @@
+language: en-US
+tone_instructions: Direct and specific. Point to the file and line, say what breaks for a person sending or reading a message, and suggest the fix. Skip praise and style nits that gofmt and golangci-lint already enforce.
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - dev
+      - main
+  path_filters:
+    - "!api/go.sum"
+    - "!web/assets/fonts/**"
+  path_instructions:
+    - path: "web/**"
+      instructions: |
+        The security model depends on this code. Flag:
+        - the key, IV or plaintext leaving the URL fragment (query string, request body, logs, storage, referrer);
+        - anything other than AES-256-GCM with a fresh random IV per message from crypto.getRandomValues;
+        - a message fetched before the reader clicks reveal (link previewers must not consume it);
+        - inline scripts, inline event handlers, style attributes or third-party origins that break the CSP in docker/nginx/default.conf;
+        - plaintext written with innerHTML instead of textContent;
+        - user-visible text that is not English.
+    - path: "api/**/*.go"
+      instructions: |
+        The server must never see plaintext and must delete a message on its first successful read. Flag:
+        - a read path that can return a message twice under concurrent requests (read and delete must be one atomic operation);
+        - a GET or HEAD that consumes a message without the read route's method check;
+        - request bodies read without http.MaxBytesReader, JSON decoded without DisallowUnknownFields, or ids not validated as UUID v4;
+        - expiresIn values outside the allow-list, or expiry not enforced on read;
+        - database calls without the request context, or HTTP servers without timeouts;
+        - log.Fatal or panic outside main, and logs containing message content, ids or client IPs beyond rate-limit needs;
+        - errors returned to clients that leak internals instead of the domain error mapping;
+        - new behaviour without a test, and tests that would pass without the feature.
+    - path: "api/adapter/output/mongodb/**"
+      instructions: |
+        Keep the TTL index on expiresAt and the atomic find-and-delete on read. New queries need an index and an integration test under the integration build tag.
+    - path: "api/infra/middleware/**"
+      instructions: |
+        Rate limiting keys by client IP (IPv6 by /64) and the visitor map must stay bounded. Only trust forwarded headers set by the local nginx. Security headers must match the nginx configuration.
+    - path: "docker/**"
+      instructions: |
+        Containers run as non-root, images are pinned, and nginx keeps the security headers, CSP, body limit, limit_req and proxy timeouts. Caddy must keep automatic HTTPS and forward the real client IP that nginx trusts in realip.conf.
+    - path: "docker-compose*.yml"
+      instructions: |
+        MongoDB keeps authentication and is not published on a host port. Secrets come from .env, never from the file itself. A MongoDB major upgrade needs a documented migration path in the README.
+    - path: ".github/workflows/**"
+      instructions: |
+        Job permissions stay minimal, third-party actions are pinned, and the vet, race test, integration, golangci-lint, govulncheck and docker build jobs keep running on pull requests.
+    - path: "readme.md"
+      instructions: |
+        The README must match the code: security model, configuration variables, status codes, rate limits and upgrade notes.
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    custom_checks:
+      - name: Zero-knowledge server
+        mode: error
+        instructions: Fail if plaintext, the encryption key or the IV can reach the server, logs, analytics or any third party, or if the key moves out of the URL fragment.
+      - name: One-time read
+        mode: error
+        instructions: Fail if a change lets a message be read more than once, read after it expired, or consumed without the reader clicking reveal.
+      - name: Tests for behaviour changes
+        mode: warning
+        instructions: Fail if API behaviour changes (status codes, validation, limits, expiry) without a matching unit or integration test.
+  tools:
+    golangci-lint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    hadolint:
+      enabled: true
+    actionlint:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: false
+knowledge_base:
+  learnings:
+    scope: local
+chat:
+  auto_reply: true
