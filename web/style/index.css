@@ -238,6 +238,7 @@ body {
   padding: 1rem 2rem;
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
   border-top: 1px solid var(--panel-border);
@@ -267,6 +268,13 @@ body {
 #expires-in:focus-visible {
   outline: none;
   border-color: var(--input-focus);
+}
+
+@media (forced-colors: active) {
+  #expires-in:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
 }
 
 #expires-in option {
