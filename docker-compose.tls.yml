@@ -7,7 +7,7 @@ services:
       - ./docker/nginx/realip.conf:/etc/nginx/conf.d/00-realip.conf:ro
 
   caddy:
-    image: caddy:2.10-alpine
+    image: caddy:2.11-alpine
     container_name: caddy_tls
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN to the public host name}
